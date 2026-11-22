@@ -1,0 +1,131 @@
+{
+  "version": 2,
+  "skills": {
+    "algorithmic-art": {
+      "source": "anthropics/skills",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "sourceType": "github",
+      "skillPath": "skills/algorithmic-art/SKILL.md",
+      "computedHash": "4a85abfeaa09f2dd2c4b76c85d57b65f61dc10d55c3cca245989cee8897c2be5"
+    },
+    "animating-react-native-expo": {
+      "source": "tristanmanchester/agent-skills",
+      "commit": "2b11ad44d295d6af3687c6b062474a50493fe41e",
+      "sourceType": "github",
+      "skillPath": "animating-react-native-expo/SKILL.md",
+      "computedHash": "b82fe765bfa6a7fdc56c0a2ee681b3b95bad5790b2abef2cd6d007316d7d1f91"
+    },
+    "expo-animation": {
+      "source": "expo/skills",
+      "commit": "88d9bd79f3fa8452a778fbac65bae162c0b32ce4",
+      "sourceType": "github",
+      "skillPath": "plugins/expo/skills/expo-animation/SKILL.md",
+      "computedHash": "7f28a298611a9440484836c2d02366bff5cdbe4c1c4cc2a1965ffe2eb075ffae"
+    },
+    "expo-design-system": {
+      "source": "expo/skills",
+      "commit": "88d9bd79f3fa8452a778fbac65bae162c0b32ce4",
+      "sourceType": "github",
+      "skillPath": "plugins/expo/skills/expo-design-system/SKILL.md",
+      "computedHash": "817613a0a2f7beab0d919b45c8c1aaa9e3d3a50c054eec959c6484248cfcbec9"
+    },
+    "expo-native-ui": {
+      "source": "expo/skills",
+      "commit": "88d9bd79f3fa8452a778fbac65bae162c0b32ce4",
+      "sourceType": "github",
+      "skillPath": "plugins/expo/skills/expo-native-ui/SKILL.md",
+      "computedHash": "7062d8239c825963bc4487678165c843594b9950276b18f1c5d48179414518eb"
+    },
+    "expo-project-structure": {
+      "source": "expo/skills",
+      "commit": "88d9bd79f3fa8452a778fbac65bae162c0b32ce4",
+      "sourceType": "github",
+      "skillPath": "plugins/expo/skills/expo-project-structure/SKILL.md",
+      "computedHash": "1d8d0089c3f367cda801f2b675d8df6b773806b62ffb8d88b390bed9f10fa607"
+    },
+    "expo-router": {
+      "source": "expo/skills",
+      "commit": "88d9bd79f3fa8452a778fbac65bae162c0b32ce4",
+      "sourceType": "github",
+      "skillPath": "plugins/expo/skills/expo-router/SKILL.md",
+      "computedHash": "9c3a05a145ceec25ccca5c733b9403b03c7174c60c48c017009c2c5a1a68c8cb"
+    },
+    "expo-ui": {
+      "source": "expo/skills",
+      "commit": "88d9bd79f3fa8452a778fbac65bae162c0b32ce4",
+      "sourceType": "github",
+      "skillPath": "plugins/expo/skills/expo-ui/SKILL.md",
+      "computedHash": "7cc34e3ee3d44ee6f754f4cc57bf64d18225ec8d8993d9540a33b9779c540de4"
+    },
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "sourceType": "github",
+      "skillPath": "skills/frontend-design/SKILL.md",
+      "computedHash": "83485963700bcf11d5bf78118facb301676b69d918fee2e45a95e7f1a2840f6c"
+    },
+    "impeccable": {
+      "source": "pbakaus/impeccable",
+      "commit": "b49177d32788f2dc585c42831d845dacf1ebed2c",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/impeccable/SKILL.md",
+      "computedHash": "08bd5bf141cb507f46bd8347890cd985865606f15adf88295ed3a73bc9ad5d96"
+    },
+    "p5js": {
+      "source": "nousresearch/hermes-agent",
+      "commit": "0f602c5f6f18615632535251d62a2db74ce93b69",
+      "sourceType": "github",
+      "skillPath": "skills/creative/p5js/SKILL.md",
+      "computedHash": "7a9c199d13611a8a3a1b06a62b95df73db0194f8028d6a8eec7d9c20a4f2d5be"
+    },
+    "product-design": {
+      "source": "mblode/agent-skills",
+      "commit": "ff9805a3dabf4529f4d88f6b3f09c5a33cb0fcb6",
+      "sourceType": "github",
+      "skillPath": "skills/product-design/SKILL.md",
+      "computedHash": "533092cfeb598f600c8f5a675f5a4054f4ceb607530b57f3c2541bfa91a1d84d"
+    },
+    "reanimated-skia-performance": {
+      "source": "andreev-danila/skills",
+      "commit": "48e4b01e982848af078bdf1bc56ae2815edc6a1b",
+      "sourceType": "github",
+      "skillPath": "skills/reanimated-skia-performance/SKILL.md",
+      "computedHash": "f34d5fa386c3b42658c2e66a21c72dbaa261063fbd00eb0d6b66002cd9893e47"
+    },
+    "typography-audit": {
+      "source": "mblode/agent-skills",
+      "commit": "ff9805a3dabf4529f4d88f6b3f09c5a33cb0fcb6",
+      "sourceType": "github",
+      "skillPath": "skills/typography-audit/SKILL.md",
+      "computedHash": "d2f8f2ddf644f5fd65134e91a1e85cdca8bfec1def90cc3be561af5191cd942d"
+    },
+    "ui-animation": {
+      "source": "mblode/agent-skills",
+      "commit": "ff9805a3dabf4529f4d88f6b3f09c5a33cb0fcb6",
+      "sourceType": "github",
+      "skillPath": "skills/ui-animation/SKILL.md",
+      "computedHash": "27cdc9c2d83d4535bd7236e5923ce02872b4359ce6fd92123afe138bfcbcd847"
+    },
+    "vercel-composition-patterns": {
+      "source": "vercel-labs/agent-skills",
+      "commit": "5a37a6329fbad3666c3207392a6a7c0110e92efb",
+      "sourceType": "github",
+      "skillPath": "skills/composition-patterns/SKILL.md",
+      "computedHash": "f711ed8b16162eaa712abbcdbbae6c926f86c57e60127735fecc3ad0dd85b3fa"
+    },
+    "vercel-react-native-skills": {
+      "source": "vercel-labs/agent-skills",
+      "commit": "5a37a6329fbad3666c3207392a6a7c0110e92efb",
+      "sourceType": "github",
+      "skillPath": "skills/react-native-skills/SKILL.md",
+      "computedHash": "4c160f1f4e623b989cadb71f42a0813be574d172acf5e32a6411c87f3e28c05a"
+    },
+    "web-design-guidelines": {
+      "source": "vercel-labs/agent-skills",
+      "commit": "5a37a6329fbad3666c3207392a6a7c0110e92efb",
+      "sourceType": "github",
+      "skillPath": "skills/web-design-guidelines/SKILL.md",
+      "computedHash": "5994e4cfd86144903d2ba750f862b9e36af15e3297aac983679e347b99f6cb71"
+    }
+  }
+}

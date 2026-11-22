@@ -8,6 +8,8 @@ export type SourceState = {
   categoryId: string | null;
   /** Hand-picked products, in the order they were picked. */
   productIds: string[];
+  /** Suggestions as they were when the seller pressed Next (so the PDF does not change under them). */
+  suggestedIds?: string[];
 };
 
 export type FlowParams = {

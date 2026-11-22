@@ -5,7 +5,6 @@
 import { useEffect, useState } from 'react';
 
 import { db } from '@/db/client';
-import { useSuggestedProducts } from '@/db/hooks';
 import { buildCatalogueData } from '@/db/repo/reports';
 import { categoryName } from '@/db/repo/catalogueData';
 import { photoAsDataUri } from '@/lib/photos';
@@ -18,22 +17,31 @@ import { selectionKey, toSelection } from '../logic/selection';
 import { useCatalogueFlow, type Prepared } from '../store';
 import { useLoadedForm } from './useCatalogueOptions';
 import { useCustomerBrief } from './useCustomerBrief';
-import { SUGGESTION_LIMIT } from './useCatalogueSource';
 
 export type PreviewStatus = 'loading' | 'ready' | 'empty' | 'error';
 
 /** The selection + data-shaping options a prepared catalogue was built for. */
 export function useSelectionKey(): { key: string | null; selection: ReturnType<typeof toSelection>; form: CatalogueForm | null } {
   const source = useCatalogueFlow((s) => s.source);
-  const customerId = useCatalogueFlow((s) => s.customerId);
-  const suggested = useSuggestedProducts(source.kind === 'suggested' ? (customerId ?? undefined) : undefined, SUGGESTION_LIMIT);
   const form = useLoadedForm();
-  const selection = toSelection(
-    source,
-    suggested.map((p) => p.id),
-  );
+  const selection = toSelection(source, source.suggestedIds ?? []);
   const key = selection && form ? `${selectionKey(selection)}|${JSON.stringify(dataOptions(form))}` : null;
   return { key, selection, form };
+}
+
+/** One build per key even when Preview and Send both ask for it at once. */
+let inflight: { id: string; promise: Promise<Prepared> } | null = null;
+function prepareOnce(id: string, build: () => Promise<Prepared>): Promise<Prepared> {
+  if (inflight?.id !== id) {
+    const promise = build();
+    inflight = { id, promise };
+    // Forget the promise once settled: the result lives in the flow store, not here.
+    const forget = () => {
+      if (inflight?.promise === promise) inflight = null;
+    };
+    promise.then(forget, forget);
+  }
+  return inflight.promise;
 }
 
 /** Builds the prepared catalogue for the current run when it is missing or stale. */
@@ -47,28 +55,32 @@ export function usePrepared(): { prepared: Prepared | null; status: PreviewStatu
 
   const fresh = prepared && prepared.key === key ? prepared : null;
 
+  const hasFresh = !!fresh;
   useEffect(() => {
-    if (!key || !selection || !form || fresh) return;
+    if (!key || !selection || !form || hasFresh) return;
     let cancelled = false;
-    (async () => {
-      try {
-        const data = buildCatalogueData(db, selection, dataOptions(form));
-        const [photos, fontCss] = await Promise.all([
-          loadPhotoMap(cataloguePhotoNames(data), photoAsDataUri, CATALOGUE_PHOTO),
-          getPdfFontCss(),
-        ]);
-        const fallbackTitle = source.kind === 'category' && source.categoryId ? (categoryName(db, source.categoryId) ?? '') : '';
-        if (!cancelled) setPrepared({ key, data, photos, fontCss, fallbackTitle });
-      } catch {
+    const runId = useCatalogueFlow.getState().runId;
+    const categoryId = source.kind === 'category' ? source.categoryId : null;
+    prepareOnce(`${runId}|${key}|${attempt}`, async () => {
+      const data = buildCatalogueData(db, selection, dataOptions(form));
+      const [photos, fontCss] = await Promise.all([loadPhotoMap(cataloguePhotoNames(data), photoAsDataUri, CATALOGUE_PHOTO), getPdfFontCss()]);
+      const fallbackTitle = categoryId ? (categoryName(db, categoryId) ?? '') : '';
+      return { key, data, photos, fontCss, fallbackTitle };
+    }).then(
+      (p) => {
+        // Drop results from an earlier run of the flow.
+        if (!cancelled && useCatalogueFlow.getState().runId === runId) setPrepared(p);
+      },
+      () => {
         if (!cancelled) setFailedKey(key);
-      }
-    })();
+      },
+    );
     return () => {
       cancelled = true;
     };
-    // `selection`/`form`/`source` are captured by `key` (and categoryId); rebuild only when it changes.
+    // `selection`, `form` and `source` are captured by `key`; rebuild only when it changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, attempt, !!fresh]);
+  }, [key, attempt, hasFresh]);
 
   let status: PreviewStatus = 'loading';
   if (key && failedKey === key) status = 'error';

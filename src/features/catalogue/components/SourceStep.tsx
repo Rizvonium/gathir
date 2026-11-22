@@ -45,7 +45,10 @@ export function SourceStep() {
           size="lg"
           fullWidth
           disabled={!s.canContinue}
-          onPress={() => router.push('/catalogue/options')}
+          onPress={() => {
+            s.confirm();
+            router.push('/catalogue/options');
+          }}
         />
       }>
       {s.products.length === 0 ? (

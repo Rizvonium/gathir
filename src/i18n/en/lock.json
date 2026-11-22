@@ -1,1 +1,36 @@
-{}
+{
+  "close": "Close",
+  "pad": {
+    "entered_one": "{{count}} of {{total}} digits entered",
+    "entered_other": "{{count}} of {{total}} digits entered",
+    "delete": "Delete last digit"
+  },
+  "verify": {
+    "title": "Enter your PIN",
+    "subtitle": "Type your 4-digit PIN to open the shop.",
+    "subtitleFingerprint": "Touch the fingerprint sensor, or type your 4-digit PIN.",
+    "wrong_one": "Wrong PIN. {{count}} try left before a short pause.",
+    "wrong_other": "Wrong PIN. {{count}} tries left before a short pause.",
+    "paused": "Too many wrong tries. Try again in {{seconds}} s.",
+    "tryAgainNow": "You can try again now."
+  },
+  "set": {
+    "title": "Choose a PIN",
+    "subtitle": "4 digits that only you know. You will type it to open the app.",
+    "confirmTitle": "Type it again",
+    "confirmSubtitle": "To make sure you remember it.",
+    "mismatch": "The two PINs were different. Choose your PIN again.",
+    "saveFailed": "Could not save the PIN. Try again.",
+    "saved": "PIN set. The app now locks when you leave it.",
+    "changed": "PIN changed."
+  },
+  "change": {
+    "verifyTitle": "Enter your current PIN"
+  },
+  "fingerprint": {
+    "use": "Use fingerprint",
+    "prompt": "Open Gathir",
+    "cancel": "Use PIN",
+    "usePin": "Use PIN"
+  }
+}

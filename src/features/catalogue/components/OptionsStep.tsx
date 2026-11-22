@@ -1,6 +1,7 @@
 /** /catalogue/options step 2: how the catalogue looks. Everything is pre-filled from last time. */
 import { Host, Switch } from '@expo/ui';
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -59,7 +60,8 @@ export function OptionsStep() {
 function OptionsForm({ form, update }: { form: CatalogueForm; update: (p: Partial<CatalogueForm>) => void }) {
   const { t } = useTranslation('catalogue');
   const { space } = useTheme();
-  const till = ratesValidTill(form.validForDays, Date.now());
+  const [now] = useState(() => Date.now());
+  const till = ratesValidTill(form.validForDays, now);
 
   return (
     <>

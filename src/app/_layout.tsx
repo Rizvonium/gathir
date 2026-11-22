@@ -17,6 +17,7 @@ import migrations from '../../drizzle/migrations';
 import { db } from '@/db/client';
 import { ensureSeedData } from '@/db/seed';
 import { recoverInterruptedRestore } from '@/features/backup/photoFolderSwap';
+import { AppLockGate } from '@/features/lock/AppLockGate';
 import { cleanupOldExports } from '@/lib/files';
 import { ToastProvider } from '@/ui/components/Toast';
 import { AppThemeProvider, useTheme } from '@/ui/theme';
@@ -77,7 +78,10 @@ export default function RootLayout() {
       <KeyboardProvider>
         <AppThemeProvider>
           <ToastProvider>
-            <Navigator />
+            {/* App lock: PIN pad over everything on cold start and after > 5 min away (when a PIN is set). */}
+            <AppLockGate>
+              <Navigator />
+            </AppLockGate>
           </ToastProvider>
         </AppThemeProvider>
       </KeyboardProvider>

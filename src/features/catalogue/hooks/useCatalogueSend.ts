@@ -15,7 +15,6 @@ import { playHaptic, useToast } from '@/ui/components';
 import { catalogueParts, partProductIds } from '../logic/parts';
 import { isDelivered, recipientCustomerId, recipientName, recipientPhone, shareProblemKey, type Recipient } from '../logic/recipient';
 import { recordCatalogueSent } from '../logic/record';
-import { useCatalogueFlow } from '../store';
 import { useLoadedForm } from './useCatalogueOptions';
 import { usePrepared } from './useCataloguePreview';
 

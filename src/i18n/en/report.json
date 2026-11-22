@@ -144,5 +144,101 @@
       "upi": "UPI: {{upi}}",
       "thanks": "Thank you for shopping with us."
     }
+  },
+  "screen": {
+    "title": "Report for owner",
+    "back": "Back",
+    "neverSent": "Not sent yet",
+    "lastSent": "Last sent {{when}}"
+  },
+  "period": {
+    "title": "Which sales?",
+    "kinds": {
+      "since": "Since last report",
+      "today": "Today",
+      "week": "This week",
+      "month": "This month",
+      "custom": "Choose dates"
+    },
+    "customHint": "Tap the first day, then the last day.",
+    "customDays": "Days",
+    "todayChip": "Today",
+    "yesterdayChip": "Yesterday",
+    "range": "{{from}} – {{to}}"
+  },
+  "summary": {
+    "pieces_one": "piece sold",
+    "pieces_other": "pieces sold",
+    "amount": "total amount",
+    "bills_one": "{{n}} bill",
+    "bills_other": "{{n}} bills",
+    "discounts": "Discounts {{amount}}",
+    "empty": "No sales in these days. You can still send it: the report shows your stock and any stock changes."
+  },
+  "options": {
+    "phones": "Include customer phone numbers",
+    "phonesHelp": "Only the owner sees this report.",
+    "photos": "Also send full photos",
+    "photosHelp": "After the PDF, send big photos of the sold shawls."
+  },
+  "preview": {
+    "open": "See the PDF first",
+    "title": "Report PDF",
+    "loading": "Making the report…",
+    "errorTitle": "Could not make the report",
+    "errorBody": "Your sales are safe. Try again.",
+    "a11y": "Report pages. Pinch to zoom."
+  },
+  "send": {
+    "button": "Send to owner on WhatsApp",
+    "preparing": "Making the PDF…",
+    "opening": "Opening WhatsApp…",
+    "to": "To {{phone}}",
+    "dialogTitle": "Send report to owner",
+    "marked": "Marked as sent ✓",
+    "sharedMarked": "Shared. Marked as sent ✓",
+    "notSent": "Not sent. Nothing was marked.",
+    "failed": "Could not open WhatsApp or the share menu. Try again.",
+    "makeFailed": "Could not make the PDF. Check that the phone has free space, then try again.",
+    "markFailed": "Sent, but could not mark it as sent. Try again.",
+    "undone": "Marked as not sent",
+    "undoFailed": "Could not undo. Try again."
+  },
+  "sent": {
+    "title": "Report {{number}} sent",
+    "body_one": "{{count}} sale · {{amount}}",
+    "body_other": "{{count}} sales · {{amount}}",
+    "done": "Done"
+  },
+  "photos": {
+    "send_one": "Send {{count}} photo",
+    "send_other": "Send {{count}} photos",
+    "none": "No photos of the sold shawls to send.",
+    "caption": "Photos for report {{number}}",
+    "sent_one": "{{count}} photo shared",
+    "sent_other": "{{count}} photos shared",
+    "partly": "Sent {{sent}} of {{total}} groups of photos.",
+    "notSent": "Photos not sent.",
+    "failed": "Could not share the photos. Is WhatsApp installed?"
+  },
+  "owner": {
+    "title": "Add the owner's WhatsApp",
+    "body": "The report goes straight to the owner's WhatsApp chat. Add the number once and it is remembered.",
+    "add": "Add owner's WhatsApp number",
+    "missing": "The owner's WhatsApp number is not saved yet."
+  },
+  "history": {
+    "title": "Sent reports",
+    "rowTitle": "Report {{number}}",
+    "sentOn": "Sent {{date}}, {{time}}",
+    "sales_one": "{{count}} sale",
+    "sales_other": "{{count}} sales",
+    "reshare": "Share the PDF again",
+    "reshareMessage": "Gathir report {{number}} (sent again).",
+    "fileGone": "The PDF is cleared from the phone after a day.",
+    "makeAgain": "Make it again",
+    "emptyTitle": "No reports sent yet",
+    "emptyBody": "Reports you send to the owner are listed here.",
+    "emptyAction": "Send a report"
   }
 }

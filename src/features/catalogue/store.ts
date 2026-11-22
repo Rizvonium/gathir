@@ -53,3 +53,8 @@ export const useCatalogueFlow = create<FlowState>((set) => ({
   setForm: (form) => set({ form }),
   setPrepared: (prepared) => set({ prepared }),
 }));
+
+/** Lets the embedded photos go (they can be tens of MB) once the flow's stack is closed. */
+export function releaseCatalogueFlow(): void {
+  useCatalogueFlow.getState().setPrepared(null);
+}

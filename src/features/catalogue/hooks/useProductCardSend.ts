@@ -1,5 +1,6 @@
 /** /catalogue/card: the 1080×1350 product card for one shawl, sent on WhatsApp. */
 import { useState } from 'react';
+import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 
 import { db } from '@/db/client';
@@ -18,7 +19,7 @@ import { recordCardSent } from '../logic/record';
 export type CardPhase = { kind: 'choose' } | { kind: 'working'; recipient: Recipient } | { kind: 'done'; recipient: Recipient };
 
 /** WhatsApp caption for a card: name, rate (when shown) and the shop. */
-export function cardMessage(t: (k: string, o?: Record<string, unknown>) => string, data: ProductCardData): string {
+export function cardMessage(t: TFunction<'catalogue'>, data: ProductCardData): string {
   const lines = [data.name.trim()];
   if (data.ratePaise !== null) lines.push(formatINR(data.ratePaise));
   if (data.code) lines.push(t('share.card.code', { code: data.code }));

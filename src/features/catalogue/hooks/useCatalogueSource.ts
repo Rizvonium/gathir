@@ -66,5 +66,7 @@ export function useCatalogueSource() {
     setCategory: (categoryId: string) => setSource((s) => ({ ...s, kind: 'category', categoryId })),
     toggleProduct: (id: string) => setSource((s) => ({ ...s, kind: 'selected', productIds: toggleId(s.productIds, id) })),
     clearPicks: () => setSource((s) => ({ ...s, productIds: [] })),
+    /** Freezes the suggestions for the rest of the run (call when leaving step 1). */
+    confirm: () => setSource((s) => ({ ...s, suggestedIds })),
   };
 }

@@ -1,1 +1,47 @@
-{}
+{
+  "all": "All",
+  "photoOf": "Photo of {{name}}",
+  "zoomHint": "Pinch or double-tap to see the weave up close",
+  "colours": "Colours: {{names}}",
+  "moreColours_one": "+{{count}} more",
+  "moreColours_other": "+{{count}} more",
+  "rateOnRequest": "Ask for the rate",
+  "position": "{{index}} of {{total}}",
+  "sendMeThis": "Send me this",
+  "attract": "Touch to browse",
+  "availability": {
+    "available": "Available",
+    "onlyLeft_one": "Only {{count}} left",
+    "onlyLeft_other": "Only {{count}} left",
+    "pieces_one": "{{n}} piece",
+    "pieces_other": "{{n}} pieces",
+    "soldOut": "Sold out"
+  },
+  "exit": {
+    "label": "Leave showroom",
+    "hint": "Hold for 1.5 seconds to leave",
+    "backHint": "To leave, hold the flower mark for a moment."
+  },
+  "empty": {
+    "title": "Nothing in stock to show",
+    "body": "Add shawls with photos, then open the showroom for your customers.",
+    "leave": "Leave showroom"
+  },
+  "sheet": {
+    "whoTitle": "Who is it for?",
+    "whatTitle": "Send to {{name}}",
+    "search": "Find a customer",
+    "searchHelper": "Type 2 letters of the name or number",
+    "noMatch": "No customer called “{{query}}”.",
+    "newCustomer": "New customer: just a number",
+    "phoneLabel": "WhatsApp number",
+    "nameLabel": "Name (optional)",
+    "continue": "Continue",
+    "back": "Back",
+    "saved": "Saved to {{name}}’s likes.",
+    "saveFailed": "Could not save this customer. Try again.",
+    "card": "Photo of this shawl",
+    "mini_one": "Small catalogue: {{count}} shawl",
+    "mini_other": "Small catalogue: {{count}} shawls they liked"
+  }
+}

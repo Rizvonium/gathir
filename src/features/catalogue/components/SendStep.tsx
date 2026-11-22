@@ -1,7 +1,8 @@
 /** /catalogue/send step 4: choose who gets it, open WhatsApp, then celebrate briefly. */
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 
 import { formatPhone } from '@/lib/phone';
@@ -20,15 +21,15 @@ export function SendStep({ toCustomerId }: { toCustomerId?: string }) {
   const exit = useExitFlow();
   const s = useCatalogueSend();
   const preset = useCustomerBrief(toCustomerId);
-  const [autoSent, setAutoSent] = useState(false);
+  const autoSent = useRef(false);
 
   // "Send to Mrs Shah" on the preview: go straight to her chat once the catalogue is ready.
   useEffect(() => {
-    if (preset && !autoSent && s.status === 'ready' && s.phase.kind === 'choose') {
-      setAutoSent(true);
+    if (preset && !autoSent.current && s.status === 'ready' && s.phase.kind === 'choose') {
+      autoSent.current = true;
       void s.send({ kind: 'customer', id: preset.id, name: preset.name, phone: preset.phone });
     }
-  }, [preset, autoSent, s]);
+  }, [preset, s]);
 
   if (s.phase.kind === 'done') {
     return <SendDone phase={s.phase} onNextPart={s.sendNextPart} onAnother={s.sendAnother} onFinish={exit} />;
@@ -52,7 +53,7 @@ export function SendStep({ toCustomerId }: { toCustomerId?: string }) {
       ) : (
         <View style={styles.flex}>
           <RecipientPicker onPick={(r) => void s.send(r)} disabled={working || s.status !== 'ready'} />
-          {working || s.status === 'loading' || (preset && !autoSent) ? (
+          {working || s.status === 'loading' ? (
             <WorkingOverlay label={s.phase.kind === 'working' && s.phase.step === 'opening' ? t('send.opening') : t('send.making')} />
           ) : null}
         </View>
@@ -73,7 +74,7 @@ function WorkingOverlay({ label }: { label: string }) {
   );
 }
 
-function recipientLine(t: (k: string, o?: Record<string, unknown>) => string, r: Recipient): string {
+function recipientLine(t: TFunction<'catalogue'>, r: Recipient): string {
   if (r.kind === 'customer') return t('done.sentTo', { name: r.name });
   if (r.kind === 'number') return t('done.sentNumber', { phone: formatPhone(r.phone) });
   return t('done.sentChat');

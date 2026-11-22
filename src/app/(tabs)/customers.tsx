@@ -1,13 +1,6 @@
-import { Text, View } from 'react-native';
+import { CustomersScreen } from '@/features/customers/components/CustomersScreen';
 
-import { useTheme } from '@/ui/theme';
-
-/** Placeholder — replaced by the customers feature. */
-export default function Screen() {
-  const { colors } = useTheme();
-  return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg }}>
-      <Text style={{ color: colors.text }}>customers</Text>
-    </View>
-  );
+/** Customers tab (PLAN §4.8). */
+export default function CustomersTab() {
+  return <CustomersScreen />;
 }

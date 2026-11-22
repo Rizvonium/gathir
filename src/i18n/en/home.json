@@ -1,1 +1,87 @@
-{}
+{
+  "greeting": {
+    "morning": "Good morning",
+    "afternoon": "Good afternoon",
+    "evening": "Good evening"
+  },
+  "myShop": "My shop",
+  "stock": {
+    "title": "Stock",
+    "piecesLabel_one": "piece in stock",
+    "piecesLabel_other": "pieces in stock",
+    "designs": "Designs",
+    "value": "Stock value",
+    "a11y": "Stock: {{pieces}} pieces in {{designs}} designs, worth {{value}}. Open stock."
+  },
+  "today": {
+    "title": "Today",
+    "sold": "Pieces sold",
+    "amount": "Sales",
+    "vsYesterdayUp": "{{value}} more than yesterday",
+    "vsYesterdayDown": "{{value}} less than yesterday",
+    "vsYesterdaySame": "Same as yesterday",
+    "noneYet": "No sales yet today",
+    "a11y": "Today: {{pieces}} pieces sold for {{amount}}. {{compare}}. Open sales."
+  },
+  "actions": {
+    "title": "Quick actions",
+    "sell": "Sell",
+    "addProduct": "Add product",
+    "showroom": "Showroom",
+    "catalogue": "Send catalogue"
+  },
+  "attention": {
+    "title": "Needs attention",
+    "seeAll": "See all",
+    "soldOut": "Sold out",
+    "low_one": "Only {{count}} left",
+    "low_other": "Only {{count}} left",
+    "a11y": "{{name}}, {{status}}. Open product.",
+    "noPhoto": "{{name}}, no photo"
+  },
+  "report": {
+    "title": "Owner report",
+    "never": "You have not sent a report yet.",
+    "sentToday": "Last sent today",
+    "sentYesterday": "Last sent yesterday",
+    "sentDaysAgo_one": "Last sent {{count}} day ago",
+    "sentDaysAgo_other": "Last sent {{count}} days ago",
+    "newSales_zero": "No new sales",
+    "newSales_one": "{{count}} new sale",
+    "newSales_other": "{{count}} new sales",
+    "send": "Send report",
+    "sendFirst": "Send your first report"
+  },
+  "followUps": {
+    "title": "Follow-ups for today",
+    "whatsapp": "Message {{name}} on WhatsApp",
+    "done": "Mark {{name}} done",
+    "doneToast": "Marked done",
+    "noPhone": "No phone number saved",
+    "message": "Hello {{name}}, ",
+    "whatsappFailed": "WhatsApp did not open. Is it installed?"
+  },
+  "sample": {
+    "banner": "You're looking at sample products.",
+    "clear": "Clear",
+    "clearA11y": "Clear sample products, customers and sales",
+    "cleared": "Sample data cleared"
+  },
+  "backup": {
+    "never": "Back up your shop",
+    "neverBody": "Save a copy so a lost or broken phone does not lose your stock and sales.",
+    "old_one": "Last backup {{count}} day ago",
+    "old_other": "Last backup {{count}} days ago",
+    "oldBody": "Make a fresh copy and keep it safe on WhatsApp or Drive.",
+    "action": "Back up now"
+  },
+  "empty": {
+    "title": "Your shelves are empty",
+    "body": "Add your first shawl with a photo and its colours. It takes about a minute.",
+    "add": "Add your first shawl",
+    "sample": "Try with sample products"
+  },
+  "errors": {
+    "generic": "Something went wrong. Your data is safe."
+  }
+}

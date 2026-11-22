@@ -1,1 +1,257 @@
-{}
+{
+  "title": "Stock",
+  "summary_one": "{{count}} design · {{pieces}}",
+  "summary_other": "{{count}} designs · {{pieces}}",
+  "noPhoto": "No photo of {{name}} yet",
+  "search": {
+    "label": "Search stock",
+    "placeholder": "Name, code, craft or colour",
+    "clear": "Clear search"
+  },
+  "categories": {
+    "label": "Category",
+    "all": "All"
+  },
+  "filters": {
+    "label": "Show",
+    "all": "All",
+    "in": "In stock",
+    "low": "Low",
+    "out": "Sold out"
+  },
+  "sort": {
+    "open": "Sort",
+    "title": "Sort by",
+    "newest": "Newest first",
+    "most": "Most pieces",
+    "least": "Fewest pieces",
+    "rate_high": "Rate: high to low",
+    "rate_low": "Rate: low to high",
+    "name": "Name A–Z"
+  },
+  "view": {
+    "grid": "Show as photo grid",
+    "list": "Show as compact list"
+  },
+  "add": "Add product",
+  "card": {
+    "a11y": "{{name}}, {{rate}}, {{status}}",
+    "oneOfAKind": "1 of a kind",
+    "selected": "Selected",
+    "hint": "Opens the product. Long-press to select."
+  },
+  "row": {
+    "sellOne": "Sell 1",
+    "menu": "More for {{name}}",
+    "soldOut": "Sold out"
+  },
+  "rowMenu": {
+    "sell": "Sell 1 piece",
+    "open": "Open product",
+    "edit": "Edit",
+    "send": "Send to customer",
+    "select": "Select",
+    "delete": "Delete"
+  },
+  "select": {
+    "count_one": "{{count}} selected",
+    "count_other": "{{count}} selected",
+    "close": "Stop selecting",
+    "all": "Select all",
+    "catalogue": "Send as catalogue",
+    "category": "Category",
+    "delete": "Delete",
+    "categoryTitle": "Move to category",
+    "categoryNone": "No category",
+    "movedTo_one": "Moved {{count}} product to {{category}}",
+    "movedTo_other": "Moved {{count}} products to {{category}}"
+  },
+  "empty": {
+    "title": "Add your first shawl",
+    "body": "Take a photo, pick its colours and count. It takes under a minute.",
+    "action": "Add product",
+    "noMatchTitle": "Nothing matches",
+    "noMatchBody": "No product matches “{{query}}”.",
+    "noMatchFilterBody": "No products with these filters.",
+    "clear": "Clear search and filters"
+  },
+  "deletedLink": "Recently deleted",
+  "toast": {
+    "deleted": "Deleted {{name}}",
+    "deletedMany_one": "Deleted {{count}} product",
+    "deletedMany_other": "Deleted {{count}} products",
+    "restored": "{{name}} is back in stock",
+    "reduced": "{{count}} fewer · {{reason}}",
+    "saved": "Saved {{name}}",
+    "noSellable": "Nothing left to sell. Add pieces first."
+  },
+  "detail": {
+    "back": "Back",
+    "edit": "Edit product",
+    "delete": "Delete product",
+    "code": "Code {{code}}",
+    "rate": "Rate",
+    "cost": "Cost price",
+    "costHidden": "Hidden",
+    "showCost": "Show cost price",
+    "hideCost": "Hide cost price",
+    "costOnlyYou": "Only you see this. Never shown to customers.",
+    "notes": "Notes",
+    "totalPieces": "Total pieces",
+    "colours": "Colours & pieces",
+    "colourPieces": "{{name}} pieces",
+    "oneOfAKind": "1 of a kind",
+    "oneOfAKindBody": "A single hand-made piece.",
+    "oneLeft": "Available",
+    "sold": "Sold",
+    "backInStock": "Back in stock",
+    "sell": "Sell",
+    "sellColour": "Sell {{name}}",
+    "send": "Send to customer",
+    "history": "History",
+    "historyEmpty": "No changes yet.",
+    "showAllHistory": "Show all {{count}} changes",
+    "notFoundTitle": "Product not found",
+    "notFoundBody": "It may have been removed for good.",
+    "deletedTitle": "This product is in Recently deleted",
+    "deletedBody": "Restore it to see and sell it again.",
+    "restore": "Restore",
+    "addPhotos": "Add photos",
+    "photoOf": "Photo {{index}} of {{total}} of {{name}}",
+    "zoomHint": "Pinch or double-tap to see the weave",
+    "noColours": "No colours yet. Edit the product to add one."
+  },
+  "reduce": {
+    "title": "Why fewer pieces?",
+    "subtitle": "{{colour}} · {{count}} left now",
+    "quantity": "How many",
+    "reasons": "Reason",
+    "cancel": "Keep the count"
+  },
+  "reason": {
+    "sold": "Sold",
+    "damaged": "Damaged",
+    "correction": "Counted wrong",
+    "returned_to_owner": "Returned to owner",
+    "sample": "Sample / gift"
+  },
+  "history": {
+    "line": "{{sign}}{{amount}} {{reason}}",
+    "colour": "{{colour}}",
+    "bill": "Bill {{billNo}}",
+    "today": "Today, {{time}}",
+    "yesterday": "Yesterday, {{time}}",
+    "on": "{{date}}, {{time}}",
+    "a11y": "{{change}}, {{colour}}, {{when}}",
+    "reason": {
+      "opening": "Opening stock",
+      "added": "Added",
+      "sold": "Sold",
+      "returned": "Returned by customer",
+      "damaged": "Damaged",
+      "correction": "Counted wrong",
+      "returned_to_owner": "Returned to owner",
+      "sample": "Sample / gift",
+      "deleted": "Deleted",
+      "restored": "Restored"
+    }
+  },
+  "errors": {
+    "insufficient": "Not enough pieces left for that. Check the count.",
+    "notFound": "This product was removed. Go back and try again.",
+    "invalid": "That change could not be saved. Check the numbers.",
+    "duplicate": "That product code is already used.",
+    "generic": "Could not save. Your data is safe — try again."
+  },
+  "wizard": {
+    "newTitle": "Add product",
+    "editTitle": "Edit product",
+    "close": "Close and keep draft",
+    "next": "Next",
+    "back": "Back",
+    "save": "Save",
+    "saveProduct": "Save product",
+    "draftKept": "Draft kept. Come back any time.",
+    "discard": "Discard draft",
+    "discarded": "Draft discarded",
+    "steps": {
+      "photos": "Photos",
+      "details": "Details",
+      "colours": "Colours & pieces"
+    },
+    "photos": {
+      "tip": "Lay flat in daylight, fill the frame.",
+      "camera": "Take photo",
+      "gallery": "From gallery",
+      "count": "{{count}} of {{max}} photos",
+      "cover": "Cover",
+      "makeCover": "Make cover",
+      "remove": "Remove photo",
+      "moveEarlier": "Move earlier",
+      "moveLater": "Move later",
+      "dragHint": "Hold and drag to reorder. The first photo is the cover.",
+      "photoA11y": "Photo {{index}} of {{total}}",
+      "coverA11y": "Cover photo, photo 1 of {{total}}",
+      "empty": "No photos yet. One clear photo is enough; you can skip this.",
+      "full": "8 photos is the most. Remove one to add another.",
+      "saving": "Saving photos…",
+      "denied": "Camera permission is off. Turn it on in Android settings, or pick from the gallery.",
+      "failed": "Could not open the photo. Try again."
+    },
+    "details": {
+      "name": "Name",
+      "namePlaceholder": "e.g. Sozni Pashmina Stole",
+      "nameHelper": "Tap a suggestion or type your own.",
+      "suggestions": "Suggestions",
+      "category": "Category",
+      "craft": "Craft",
+      "material": "Material",
+      "size": "Size",
+      "rate": "Rate",
+      "rateHelper": "Price for customers",
+      "cost": "Cost price (optional)",
+      "costHelper": "Only you see this.",
+      "addCost": "Add cost price",
+      "notes": "Notes (optional)",
+      "notesPlaceholder": "Weaver, story, care…",
+      "addNotes": "Add notes"
+    },
+    "colours": {
+      "pick": "Tap the colours you have",
+      "custom": "Other colour",
+      "customPlaceholder": "e.g. Peacock blue",
+      "addCustom": "Add colour",
+      "chosen": "Pieces per colour",
+      "remove": "Remove {{name}}",
+      "none": "No colours yet. Tap one above.",
+      "total_one": "Total: {{count}} piece",
+      "total_other": "Total: {{count}} pieces",
+      "oneOfAKind": "One of a kind",
+      "oneOfAKindHelp": "A single unique piece. Selling it makes it sold out.",
+      "oneOfAKindPick": "Which colour is it?"
+    },
+    "errors": {
+      "nameRequired": "Give it a name, or tap a suggestion.",
+      "rateRequired": "Enter the rate in rupees.",
+      "coloursRequired": "Pick at least one colour."
+    }
+  },
+  "deleted": {
+    "title": "Recently deleted",
+    "subtitle": "Kept for 30 days, then removed for good.",
+    "products": "Products",
+    "customers": "Customers",
+    "restore": "Restore",
+    "restoreA11y": "Restore {{name}}",
+    "daysLeft_one": "{{count}} day left",
+    "daysLeft_other": "{{count}} days left",
+    "lastDay": "Last day",
+    "pieces_one": "{{count}} piece",
+    "pieces_other": "{{count}} pieces",
+    "restoredProduct": "Restored {{name}}",
+    "restoredCustomer": "Restored {{name}}",
+    "emptyTitle": "Nothing deleted",
+    "emptyBody": "Products and customers you delete wait here for 30 days.",
+    "customerClash": "Can't restore: {{name}} already has this phone number."
+  }
+}

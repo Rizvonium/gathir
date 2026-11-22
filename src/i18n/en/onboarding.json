@@ -1,1 +1,64 @@
-{}
+{
+  "back": "Back",
+  "continue": "Continue",
+  "skipIntro": "Skip the intro",
+  "welcome": {
+    "tagline": "Your shop, in your pocket.",
+    "body": "Count your shawls, sell in seconds and send neat catalogues on WhatsApp. Everything stays on this phone.",
+    "start": "Get started",
+    "a11yLogo": "Gathir"
+  },
+  "language": {
+    "title": "Choose your language",
+    "body": "You can change this later in More.",
+    "selected": "Selected",
+    "comingSoon": "Coming soon",
+    "a11yComingSoon": "{{name}}, coming soon, not available yet",
+    "a11ySelected": "{{name}}, selected"
+  },
+  "shop": {
+    "title": "Your shop",
+    "body": "These details go on your catalogues and bills. Only the shop name is needed now.",
+    "shopName": "Shop name",
+    "shopNamePlaceholder": "e.g. Valley Pashmina House",
+    "shopNameRequired": "Type your shop name to continue.",
+    "sellerName": "Your name",
+    "sellerNameHelper": "Optional",
+    "phone": "Shop phone",
+    "phoneHelper": "Optional. Customers can call this number.",
+    "address": "Address",
+    "addressHelper": "Optional. One or two lines is enough.",
+    "upi": "UPI ID",
+    "upiHelper": "Optional. Printed on bills so customers can pay.",
+    "upiPlaceholder": "yourname@bank",
+    "upiInvalid": "A UPI ID looks like name@bank. Check it or leave it empty.",
+    "phoneInvalid": "Check the phone number or leave it empty."
+  },
+  "owner": {
+    "title": "Owner's WhatsApp",
+    "body": "Your sales reports go to this number. Ask the owner if you are not sure.",
+    "bodyPrefilled": "This number was set for you. Check it, then continue.",
+    "label": "Owner's WhatsApp number",
+    "helper": "Reports are sent here on WhatsApp.",
+    "later": "You can add it later in More, before you send your first report.",
+    "invalid": "Check the number or leave it empty for now."
+  },
+  "lock": {
+    "title": "Lock the app?",
+    "body": "A PIN or your fingerprint keeps your prices and sales private if someone else picks up the phone.",
+    "setPin": "Set a PIN",
+    "skip": "Not now",
+    "done": "PIN is set. The app will ask for it when you open it.",
+    "later": "You can turn this on any time in More."
+  },
+  "start": {
+    "title": "Ready to start",
+    "body": "Add a real shawl now, or look around with sample products first.",
+    "addFirst": "Add your first shawl",
+    "addFirstHint": "Take a photo, add colours and pieces",
+    "sample": "Try with sample products",
+    "sampleHint": "12 shawls, a few customers and sales. Clear them with one tap later.",
+    "restore": "Moving from another phone? Restore a backup",
+    "error": "Could not finish setting up. Your details are saved. Try again."
+  }
+}

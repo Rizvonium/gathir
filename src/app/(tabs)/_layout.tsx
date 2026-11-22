@@ -1,12 +1,17 @@
+import { Redirect } from 'expo-router';
 import { NativeTabs } from 'expo-router/native-tabs';
 import { useTranslation } from 'react-i18next';
 
+import { useOnboarded } from '@/features/onboarding/useOnboarded';
 import { useTheme } from '@/ui/theme';
 
 /** Five peer tabs. Tab switches never animate (expo-animation skill). */
 export default function TabsLayout() {
   const { colors, fonts } = useTheme();
   const { t } = useTranslation();
+  const onboarded = useOnboarded();
+  // First launch (or an unfinished one): show the welcome flow before any tab.
+  if (!onboarded) return <Redirect href="/welcome" />;
   return (
     <NativeTabs
       backgroundColor={colors.surface}

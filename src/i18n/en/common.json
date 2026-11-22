@@ -1,0 +1,38 @@
+{
+  "appName": "Gathir",
+  "tabs": {
+    "home": "Home",
+    "stock": "Stock",
+    "sales": "Sales",
+    "customers": "Customers",
+    "more": "More"
+  },
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "done": "Done",
+    "undo": "Undo",
+    "delete": "Delete",
+    "edit": "Edit",
+    "next": "Next",
+    "back": "Back",
+    "send": "Send",
+    "share": "Share",
+    "retry": "Try again"
+  },
+  "pieces_one": "{{count}} piece",
+  "pieces_other": "{{count}} pieces",
+  "stock": {
+    "ok": "In stock",
+    "low": "Low",
+    "out": "Sold out",
+    "onlyLeft_one": "Only {{count}} left",
+    "onlyLeft_other": "Only {{count}} left",
+    "available": "Available"
+  },
+  "errors": {
+    "generic": "Something went wrong. Your data is safe.",
+    "dbFailed": "Could not open your shop data."
+  },
+  "loading": "Opening your shop…"
+}

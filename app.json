@@ -1,0 +1,108 @@
+{
+  "expo": {
+    "name": "Gathir",
+    "slug": "gathir",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "platforms": [
+      "android"
+    ],
+    "icon": "./assets/images/icon.png",
+    "scheme": "gathir",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#FFF8EE",
+    "android": {
+      "package": "com.gathir.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#C62F17",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": true,
+      "allowBackup": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_CONTACTS",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.POST_NOTIFICATIONS"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#FFF8EE",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 96,
+          "dark": {
+            "backgroundColor": "#15101F"
+          }
+        }
+      ],
+      "expo-sqlite",
+      "expo-sharing",
+      [
+        "react-native-share",
+        {
+          "android": [
+            "com.whatsapp",
+            "com.whatsapp.w4b"
+          ]
+        }
+      ],
+      "expo-secure-store",
+      "expo-localization",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Gathir uses the camera to photograph your shawls.",
+          "photosPermission": "Gathir lets you pick shawl photos from your gallery."
+        }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Gathir lets you pick a customer from your contacts."
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Unlock Gathir with your fingerprint or face."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#C62F17"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          }
+        }
+      ],
+      "expo-font",
+      "expo-asset"
+    ],
+    "extra": {
+      "ownerWhatsApp": "",
+      "ownerName": "Owner"
+    },
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

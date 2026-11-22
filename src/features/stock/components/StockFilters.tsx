@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import type { Category } from '@/db/schema';
 import type { ProductFilter } from '@/db/repo/productQueries';
-import { Chip, IconButton, TextField } from '@/ui/components';
+import { Chip, IconButton, TextField, toIconName } from '@/ui/components';
 import { useTheme } from '@/ui/theme';
 
 import { FILTERS } from '../logic/view';
@@ -47,7 +47,7 @@ export function StockFilters({ search, onSearch, categories, categoryId, onCateg
           contentContainerStyle={[styles.row, rowStyle]}>
           <Chip label={t('categories.all')} role="radio" selected={categoryId === null} onPress={() => onCategory(null)} />
           {categories.map((c) => (
-            <Chip key={c.id} label={c.name} role="radio" selected={categoryId === c.id} onPress={() => onCategory(categoryId === c.id ? null : c.id)} />
+            <Chip key={c.id} label={c.name} icon={toIconName(c.icon)} role="radio" selected={categoryId === c.id} onPress={() => onCategory(categoryId === c.id ? null : c.id)} />
           ))}
         </ScrollView>
       ) : null}

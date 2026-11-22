@@ -7,6 +7,17 @@ import type { ColorTokens } from '../tokens';
 
 export type IconName = ComponentProps<typeof MaterialIcons>['name'];
 
+/**
+ * Maps a stored icon name to a Material glyph, or undefined. Stored names (e.g. category icons in
+ * the database) use Material's snake_case (`grid_on`); @expo/vector-icons uses hyphens (`grid-on`).
+ */
+export function toIconName(raw: string | null | undefined): IconName | undefined {
+  if (!raw) return undefined;
+  const name = raw.trim().replace(/_/g, '-');
+  const glyphs = (MaterialIcons as { glyphMap?: Record<string, number> }).glyphMap;
+  return glyphs && name in glyphs ? (name as IconName) : undefined;
+}
+
 export type IconProps = {
   name: IconName;
   size?: number;

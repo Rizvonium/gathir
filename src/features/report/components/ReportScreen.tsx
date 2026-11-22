@@ -9,7 +9,7 @@ import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { formatDate, relativeDays, startOfDay } from '@/lib/dates';
+import { formatDate, relativeDaysKey, startOfDay } from '@/lib/dates';
 import { formatPhone } from '@/lib/phone';
 import { formatINR, formatNumber } from '@/lib/money';
 import { PaisleyConfetti } from '@/ui/patterns';
@@ -47,7 +47,11 @@ export function ReportScreen({ initialFrom, initialTo }: { initialFrom?: number;
   const celebrate = useReportFlow((st) => st.celebrate);
   const setFlow = useReportFlow((st) => st.set);
 
-  const lastSent = p.basics.lastSentAt === null ? t('screen.neverSent') : t('screen.lastSent', { when: relativeDays(p.basics.lastSentAt, p.now) });
+  const relativeLabel = (ms: number, now: number) => {
+    const r = relativeDaysKey(ms, now);
+    return t(`common:relative.${r.key}`, { count: r.count });
+  };
+  const lastSent = p.basics.lastSentAt === null ? t('screen.neverSent') : t('screen.lastSent', { when: relativeLabel(p.basics.lastSentAt, p.now) });
   const sendLabel = s.phase === 'preparing' ? t('send.preparing') : s.phase === 'sharing' ? t('send.opening') : t('send.button');
 
   const footer = s.owner ? (
@@ -71,7 +75,7 @@ export function ReportScreen({ initialFrom, initialTo }: { initialFrom?: number;
         edges={['top', 'bottom']}
         footer={footer}
         leading={<IconButton icon="arrow-back" accessibilityLabel={t('screen.back')} onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} />}
-        actions={<IconButton testID="report-history" icon="history" accessibilityLabel={t('history.title')} onPress={() => router.push('/report/history' as never)} />}>
+        actions={<IconButton testID="report-history" icon="history" accessibilityLabel={t('history.title')} onPress={() => router.push('/report/history')} />}>
         {s.sent ? <SentCard sent={s.sent} alsoPhotos={s.alsoPhotos} sendingPhotos={s.phase === 'photos'} busy={s.busy} onSendPhotos={s.sendPhotos} /> : null}
 
         <View style={{ gap: space.sm }}>
@@ -98,7 +102,7 @@ export function ReportScreen({ initialFrom, initialTo }: { initialFrom?: number;
           />
         </Card>
 
-        <Button testID="report-preview" label={t('preview.open')} icon="picture-as-pdf" variant="secondary" fullWidth onPress={() => router.push('/report/preview' as never)} />
+        <Button testID="report-preview" label={t('preview.open')} icon="picture-as-pdf" variant="secondary" fullWidth onPress={() => router.push('/report/preview')} />
         {!s.owner ? (
           <AppText variant="small" muted align="center">
             {t('owner.missing')}

@@ -40,6 +40,26 @@ src/test/                     Node test helpers (createTestDb uses better-sqlite
 design/pattern-lab/           p5.js sketches (design-time only)
 ```
 
+## Route map (final, after integration)
+Typed routes are on: `npm run typecheck` first writes `.expo/types/router.d.ts` (`scripts/gen-route-types.js`), so a link to a route that does not exist fails tsc. Do not cast hrefs (`as Href` / `as never`) unless the path is built at runtime.
+
+| Path | Notes |
+|---|---|
+| `/(tabs)` `index` Home · `/stock` · `/sales` · `/customers` · `/more` | Tabs layout redirects to `/welcome` until onboarding is finished |
+| `/welcome` → `/language` → `/shop` → `/owner` → `/app-lock` → `/start` | group `(onboarding)`. The lock step is `/app-lock` (an `(onboarding)/lock.tsx` would collide with `/lock`). No other feature may create these top-level paths |
+| `/product/new`, `/product/[id]`, `/product/[id]/edit`, `/deleted` | `/deleted` lists products and customers |
+| `/sell?productId=&colourId=&customerId=` | formSheet, declared in the root `_layout.tsx` Stack |
+| `/sale/[id]` | |
+| `/customer/new?name=&phone=&returnTo=`, `/customer/[id]`, `/customer/[id]/edit` | `returnTo` returns via `router.dismissTo` with `customerId` |
+| `/catalogue?productIds=&categoryId=&customerId=&quick=1` → `/catalogue/options` → `/catalogue/preview` → `/catalogue/send`; `/catalogue/card?productId=&customerId=` | `quick=1` jumps to preview (Showroom) |
+| `/showroom`, `/showroom/leave` | Exit pushes `/lock?mode=verify&returnTo=/showroom/leave` on top (never replaces itself with `/lock`) |
+| `/report` → `/report/preview`; `/report/history` | `/report?from=&to=` re-makes an old report |
+| `/settings` (→ `/more`), `/settings/shop`, `/settings/owner`, `/settings/stock`, `/settings/catalogue`, `/settings/language`, `/settings/storage`, `/settings/sample-data`, `/settings/tags`, `/settings/lock` | |
+| `/backup`, `/backup/result` | weekly reminder notification taps open `/backup` |
+| `/lock?mode=` set / verify / change `&returnTo=` | `returnTo` must start with `/`; success does `router.replace(returnTo)`, else back. Close/back in verify mode only goes back, so never guard a screen by *replacing* it with `/lock` |
+
+Root layout order: fonts + migrations → seed → `ToastProvider` → `AppLockGate` (applies only once a PIN is set **and** onboarding is finished) → Stack, plus notification-tap routing (follow-up → `/customer/[id]`, backup → `/backup`).
+
 ## Data rules
 - drizzle's expo-sqlite driver is **synchronous**. `db.transaction((tx) => { … })` callbacks must not be `async`. Inside, use `.run()`, `.get()`, `.all()`.
 - Repository functions take `DbOrTx` as their first argument so they run in Node tests with `createTestDb()` and in the app with `db`.
@@ -59,4 +79,6 @@ design/pattern-lab/           p5.js sketches (design-time only)
 ## Testing
 - `npm test` runs two Jest projects: `*.node.test.ts` (Node, for db/lib/pdf logic, with `createTestDb()`) and `*.rn.test.tsx` (jest-expo, for components).
 - `npm run typecheck`, `npm run lint`, `npm run export:android` (Metro Android bundle) must pass.
+- `src/test/rnSetup.ts` already mocks Reanimated (incl. `withSequence`, layout builders), worklets, haptics, Gesture Handler (`jestSetup`), `react-native-keyboard-controller` and safe-area. The real `ToastProvider` cannot render under Jest: mock `@/ui/components/Toast` in screen tests.
+- `src/i18n/__tests__/keys.node.test.ts` fails when a static `t('key')` has no string in `src/i18n/en/*.json`.
 - The APK is built with EAS: `npx eas-cli build -p android --profile preview` (needs an Expo account; not possible on the cloud build machine).

@@ -37,7 +37,7 @@ export function ReportHistoryScreen() {
             body={t('history.emptyBody')}
             actionLabel={t('history.emptyAction')}
             actionIcon="send"
-            onAction={() => router.replace('/report' as never)}
+            onAction={() => router.replace('/report')}
           />
         }
         renderItem={({ item }) => (

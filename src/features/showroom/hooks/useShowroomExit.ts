@@ -6,6 +6,8 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback } from 'react';
 import { BackHandler } from 'react-native';
 
+import { SHOWROOM_LEAVE_PATH } from '../logic/leave';
+
 export function useShowroomExit({ pinSet, onBackBlocked }: { pinSet: boolean; onBackBlocked: () => void }) {
   useFocusEffect(
     useCallback(() => {
@@ -19,8 +21,9 @@ export function useShowroomExit({ pinSet, onBackBlocked }: { pinSet: boolean; on
 
   return () => {
     if (pinSet) {
-      // The lock screen replaces the Showroom; on success it goes back to where the seller was.
-      router.replace({ pathname: '/lock', params: { mode: 'verify', returnTo: 'back' } });
+      // Pushed, not replaced: closing the lock screen (or Android back there) returns to the
+      // Showroom, never past it. A correct PIN goes to /showroom/leave, which closes the Showroom.
+      router.push({ pathname: '/lock', params: { mode: 'verify', returnTo: SHOWROOM_LEAVE_PATH } });
     } else if (router.canGoBack()) {
       router.back();
     } else {

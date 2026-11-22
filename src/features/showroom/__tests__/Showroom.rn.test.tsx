@@ -35,7 +35,7 @@ jest.mock('@/features/catalogue/logic/record', () => ({
 }));
 
 const product = require('../../catalogue/__tests__/catalogueMocks').product;
-const { router } = jest.requireMock('expo-router') as { router: { replace: jest.Mock; back: jest.Mock } };
+const { router } = jest.requireMock('expo-router') as { router: { replace: jest.Mock; back: jest.Mock; push: jest.Mock } };
 
 describe('overlay', () => {
   it('shows rate, colours and plain availability, never cost', async () => {
@@ -107,8 +107,10 @@ describe('leaving the showroom', () => {
     await renderWithTheme(<Harness pinSet />);
     expect(listeners.map((fn) => fn())).toContain(true);
     expect(onBlocked).toHaveBeenCalled();
+    router.replace.mockClear();
     await fireEvent.press(screen.getByTestId('exit'));
-    expect(router.replace).toHaveBeenCalledWith({ pathname: '/lock', params: { mode: 'verify', returnTo: 'back' } });
+    expect(router.push).toHaveBeenCalledWith({ pathname: '/lock', params: { mode: 'verify', returnTo: '/showroom/leave' } });
+    expect(router.replace).not.toHaveBeenCalled();
     spy.mockRestore();
   });
 });

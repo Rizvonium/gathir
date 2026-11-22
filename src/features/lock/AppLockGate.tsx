@@ -2,6 +2,9 @@
  * App lock (PLAN §3): when a PIN is set, the app opens behind the PIN pad on a cold start and
  * after more than 5 minutes in the background. The pad is an overlay above the navigator (not a
  * route), so Back cannot skip it and the seller returns exactly where they were.
+ *
+ * The gate only applies once first-launch setup has finished: a PIN set on the onboarding
+ * `/app-lock` step must not lock a seller out of their own unfinished setup after a restart.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AppState, BackHandler, StyleSheet, View } from 'react-native';
@@ -10,23 +13,27 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { db } from '@/db/client';
 import { useDbQuery } from '@/db/hooks';
 import { updateSettings } from '@/db/repo/settings';
+import { readOnboarded } from '@/features/onboarding/onboardingData';
 import { useTheme } from '@/ui/theme';
 
 import { PinVerifyPanel } from './components/PinVerifyPanel';
 import { readPinFlag } from './pinFlag';
-import { shouldLockOnResume } from './pinLogic';
+import { lockGateActive, shouldLockOnResume } from './pinLogic';
 import { isPinStored } from './pinStore';
 
 export function AppLockGate({ children }: { children: ReactNode }) {
-  const pinSet = useDbQuery(readPinFlag, []);
+  const pinFlag = useDbQuery(readPinFlag, []);
+  const onboarded = useDbQuery(readOnboarded, []);
+  const pinSet = lockGateActive(pinFlag, onboarded);
   // Cold start: locked from the first frame when a PIN is set (no flash of shop data).
-  const [locked, setLocked] = useState(pinSet);
+  const [lockedState, setLocked] = useState(pinSet);
+  // Removing the PIN (flag off) opens the gate at once.
+  const locked = lockedState && pinSet;
   const backgroundAt = useRef<number | null>(null);
   const pinSetRef = useRef(pinSet);
 
   useEffect(() => {
     pinSetRef.current = pinSet;
-    if (!pinSet) setLocked(false);
   }, [pinSet]);
 
   // The flag says "PIN set" but this phone has no PIN (e.g. secure storage was cleared): never lock out.

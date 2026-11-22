@@ -37,11 +37,29 @@ export const useAnimatedStyle = () => ({});
 export const withTiming = <T,>(v: T) => v;
 export const withSpring = <T,>(v: T) => v;
 export const withRepeat = <T,>(v: T) => v;
+/** A sequence settles on its last step. */
+export const withSequence = <T,>(...steps: T[]) => steps[steps.length - 1];
+export const withDelay = <T,>(_ms: number, v: T) => v;
+export const useDerivedValue = <T,>(fn: () => T) => {
+  const v = fn();
+  return { get: () => v, set: () => undefined, value: v };
+};
+export const useAnimatedReaction = () => undefined;
+export const useFrameCallback = () => ({ setActive: () => undefined, isActive: false });
+export const useReducedMotion = () => false;
+export const runOnJS = <F,>(fn: F) => fn;
 export const cancelAnimation = () => undefined;
 export const createAnimatedComponent = <C,>(c: C) => c;
 export const FadeIn = builder();
 export const FadeInDown = builder();
 export const FadeOut = builder();
+export const FadeInUp = builder();
+export const FadeOutDown = builder();
+export const FadeOutUp = builder();
+export const ZoomIn = builder();
+export const ZoomOut = builder();
+export const LinearTransition = builder();
+export const Layout = builder();
 
 const Animated = { View, Text, createAnimatedComponent };
 export default Animated;

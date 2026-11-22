@@ -1,4 +1,4 @@
-import { useRouter, type Href } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -70,7 +70,7 @@ export function HomeView({ model, actions }: { model: HomeModel; actions: HomeAc
               body={t('empty.body')}
               actionLabel={t('empty.add')}
               actionIcon="add-a-photo"
-              onAction={() => router.push('/product/new' as Href)}
+              onAction={() => router.push('/product/new')}
               style={styles.empty}
             />
             {!model.hasSample ? <Button testID="home-empty-sample" label={t('empty.sample')} variant="ghost" onPress={actions.trySample} /> : null}

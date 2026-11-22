@@ -1,5 +1,5 @@
 /** Follow-ups: event + local notification stay in step (schedule, done, undo, permission off). */
-import { createCustomer, getCustomerProfile } from '@/db/repo/customers';
+import { createCustomer, getCustomerProfile, restoreCustomer, softDeleteCustomer } from '@/db/repo/customers';
 import { dueFollowUps } from '@/db/repo/events';
 import { createTestDb } from '@/test/testDb';
 
@@ -22,6 +22,7 @@ import {
   customerIdFromResponse,
   finishFollowUp,
   removeFollowUp,
+  rescheduleOpenFollowUps,
   scheduleFollowUpNotification,
   undoFinishFollowUp,
 } from '../followUpNotifications';
@@ -107,4 +108,27 @@ it('reads the customer id from a tapped reminder only', () => {
   expect(customerIdFromResponse(response({ type: 'follow-up', customerId: 'c1' }))).toBe('c1');
   expect(customerIdFromResponse(response({ type: 'backup', customerId: 'c1' }))).toBeNull();
   expect(customerIdFromResponse(null)).toBeNull();
+});
+
+it('restoring a customer re-arms only their open follow-ups that are still ahead', async () => {
+  const { db, customerId } = setup();
+  const ahead = await createFollowUp(db, { customerId, dueAt: DUE, note: 'New Kani arrived', texts }, NOW);
+  const past = await createFollowUp(db, { customerId, dueAt: NOW + 120_000, note: '', texts }, NOW);
+  const done = await createFollowUp(db, { customerId, dueAt: DUE + 1, note: '', texts }, NOW);
+  await finishFollowUp(db, done.eventId, NOW);
+  softDeleteCustomer(db, customerId, NOW);
+  restoreCustomer(db, customerId);
+  jest.clearAllMocks();
+  mockNotifications.scheduleNotificationAsync.mockResolvedValueOnce('notif-2');
+
+  const later = NOW + 60 * 60_000; // the second follow-up is now too close to schedule
+  await rescheduleOpenFollowUps(db, customerId, (note) => ({ ...texts, body: note || 'default' }), later);
+
+  expect(mockNotifications.scheduleNotificationAsync).toHaveBeenCalledTimes(1);
+  expect(mockNotifications.scheduleNotificationAsync).toHaveBeenCalledWith(
+    expect.objectContaining({ content: expect.objectContaining({ body: 'New Kani arrived', data: expect.objectContaining({ eventId: ahead.eventId }) }) }),
+  );
+  const open = getCustomerProfile(db, customerId)!.openFollowUps;
+  expect(open.map((e) => e.id)).toEqual([past.eventId, ahead.eventId]);
+  expect(open.find((e) => e.id === ahead.eventId)?.notificationId).toBe('notif-2');
 });

@@ -193,7 +193,7 @@ export function AttentionStrip({ items, total, lowStockLevel }: { items: Attenti
               key={p.id}
               testID={`home-attention-${p.id}`}
               accessibilityLabel={t('attention.a11y', { name: p.name, status })}
-              onPress={() => router.push(`/product/${p.id}` as Href)}
+              onPress={() => router.push(`/product/${p.id}`)}
               style={{ width: ATTENTION_SIZE, gap: space.xs }}>
               {p.coverThumb ? (
                 <Thumbnail uri={thumbUri(p.coverThumb)} size={ATTENTION_SIZE} rounded="md" />
@@ -252,7 +252,7 @@ export function ReportCard({ status }: { status: ReportStatus }) {
           icon="send"
           variant={status.newSales > 0 || status.kind === 'never' ? 'primary' : 'secondary'}
           fullWidth
-          onPress={() => router.push('/report' as Href)}
+          onPress={() => router.push('/report')}
         />
       </View>
     </Card>
@@ -292,7 +292,7 @@ export function FollowUps({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={f.note ? `${f.customerName}, ${f.note}` : f.customerName}
-                onPress={() => router.push(`/customer/${f.customerId}` as Href)}
+                onPress={() => router.push(`/customer/${f.customerId}`)}
                 style={({ pressed }) => [styles.flex, { opacity: pressed ? 0.6 : 1, minHeight: touchTarget, justifyContent: 'center' }]}>
                 <AppText weight="semibold" numberOfLines={1}>
                   {f.customerName}
@@ -366,7 +366,7 @@ export function BackupCard({ reminder }: { reminder: BackupReminder }) {
             <AppText muted>{body}</AppText>
           </View>
         </View>
-        <Button label={t('backup.action')} icon="cloud-upload" variant="secondary" fullWidth onPress={() => router.push('/backup' as Href)} />
+        <Button label={t('backup.action')} icon="cloud-upload" variant="secondary" fullWidth onPress={() => router.push('/backup')} />
       </View>
     </Card>
   );

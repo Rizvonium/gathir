@@ -12,7 +12,7 @@ export { readableTextOn } from './colorContrast';
 export { Divider, type DividerProps } from './Divider';
 export { EmptyState, type EmptyStateProps } from './EmptyState';
 export { playHaptic, type HapticKind } from './haptics';
-export { Icon, type IconName, type IconProps } from './Icon';
+export { Icon, toIconName, type IconName, type IconProps } from './Icon';
 export { IconButton, type IconButtonProps, type IconButtonVariant } from './IconButton';
 export { ListRow, type ListRowProps } from './ListRow';
 export { MoneyInput, type MoneyInputProps } from './MoneyInput';

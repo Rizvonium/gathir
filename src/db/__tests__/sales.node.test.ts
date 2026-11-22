@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 
 import { RepoError } from '@/db/repo/errors';
 import { softDeleteProduct } from '@/db/repo/products';
-import { cancelSale, createSale, getSale, listSales, salesSummary, unreportedSales } from '@/db/repo/sales';
+import { cancelSale, createSale, getSale, hasAnySale, listSales, salesSummary, unreportedSales } from '@/db/repo/sales';
 import { createCategory } from '@/db/repo/categories';
 import { colours, customers, sales, stockMoves } from '@/db/schema';
 import { productPieces, StockError } from '@/db/stock';
@@ -29,6 +29,16 @@ describe('sales', () => {
     expect(createSale(db, { items: [{ colourId: colourIds[0], qty: 1, ratePaise: 1 }] }, T0 + 1).billNo).toBe('B-2026-0002');
     expect(createSale(db, { items: [{ colourId: colourIds[0], qty: 1, ratePaise: 1 }] }, new Date(2027, 0, 2).getTime()).billNo).toBe('B-2027-0001');
     expectNoDrift(db);
+  });
+
+  it('hasAnySale is false for a new shop and stays true after a return', () => {
+    const db = createTestDb();
+    const { colourIds } = addTestProduct(db);
+    expect(hasAnySale(db)).toBe(false);
+    const { saleId } = createSale(db, { items: [{ colourId: colourIds[0], qty: 1, ratePaise: 1 }] }, T0);
+    expect(hasAnySale(db)).toBe(true);
+    cancelSale(db, saleId, T0 + 1);
+    expect(hasAnySale(db)).toBe(true);
   });
 
   it('fails atomically when any item has too few pieces', () => {

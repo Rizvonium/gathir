@@ -8,7 +8,7 @@ import { AndroidImportance, AndroidNotificationVisibility } from 'expo-notificat
 import { router } from 'expo-router';
 import { useEffect, useRef } from 'react';
 
-import { addFollowUp, completeFollowUp, deleteEvent, reopenFollowUp, setFollowUpNotification } from '@/db/repo/events';
+import { addFollowUp, completeFollowUp, deleteEvent, openFollowUpsFor, reopenFollowUp, setFollowUpNotification } from '@/db/repo/events';
 import type { DbOrTx } from '@/db/types';
 
 import { customerHref } from './logic/links';
@@ -129,6 +129,23 @@ export async function undoFinishFollowUp(
   reopenFollowUp(database, input.eventId);
   const res = await scheduleFollowUpNotification(input, now);
   if (res.notificationId) setFollowUpNotification(database, input.eventId, res.notificationId);
+}
+
+/**
+ * After a customer comes back from Recently deleted (or a delete is undone elsewhere): re-arms the
+ * reminders of their open follow-ups that are still ahead. Deleting a customer cancels them.
+ */
+export async function rescheduleOpenFollowUps(
+  database: DbOrTx,
+  customerId: string,
+  textsFor: (note: string) => ReminderTexts,
+  now: number = Date.now(),
+): Promise<void> {
+  for (const e of openFollowUpsFor(database, customerId)) {
+    if (e.dueAt === null) continue;
+    const res = await scheduleFollowUpNotification({ eventId: e.id, customerId, dueAt: e.dueAt, texts: textsFor(e.note) }, now);
+    if (res.notificationId) setFollowUpNotification(database, e.id, res.notificationId);
+  }
 }
 
 /** Undo for createFollowUp: removes the event and its reminder. */

@@ -52,7 +52,7 @@ export function useReportHistory() {
   /** The PDF was cleared after 24 h: open the report screen on the same dates to make it again. */
   const makeAgain = (row: HistoryRow) => {
     if (row.from === null || row.to === null) return;
-    router.push({ pathname: '/report', params: { from: String(row.from), to: String(row.to) } } as never);
+    router.push({ pathname: '/report', params: { from: String(row.from), to: String(row.to) } });
   };
 
   return { rows, busyId, hasFile: (row: HistoryRow) => fileFor(row) !== null, reshare: (row: HistoryRow) => void reshare(row), makeAgain };

@@ -9,5 +9,71 @@
     "photoSaveFailed": "Could not save this photo. Try another one.",
     "cameraDenied": "Allow camera access in Settings to take photos.",
     "pickFailed": "Could not open photos. Try again."
+  },
+  "screen": {
+    "title": "Backup and restore",
+    "subtitle": "Your shop lives only on this phone. A backup keeps it safe if the phone is lost or broken.",
+    "back": "Back"
+  },
+  "status": {
+    "never": "No backup yet",
+    "neverBody": "If this phone is lost, your designs, sales and customers are lost too. Make a backup now.",
+    "today": "Last backup today, {{time}}",
+    "days_one": "Last backup yesterday",
+    "days_other": "Last backup {{count}} days ago",
+    "date": "{{date}}, {{time}}",
+    "stale": "Make a new backup once a week.",
+    "fresh": "You are safe. Make another after a busy week."
+  },
+  "create": {
+    "button": "Make a backup",
+    "making": "Making the backup…",
+    "opening": "Choose where to keep it…",
+    "where": "Then save it to Google Drive, send it to yourself or the owner on WhatsApp, or copy it to a USB stick.",
+    "made": "Backup made ({{size}}). Keep it somewhere other than this phone.",
+    "size": "About {{size}}",
+    "dialogTitle": "Keep your Gathir backup"
+  },
+  "contains": {
+    "title": "What goes in a backup",
+    "body": "All designs with photos, piece counts and history, sales, customers and reports. Your PIN is not included.",
+    "privacy": "It has your customers' names and phone numbers. Keep it only in your own Drive or chat."
+  },
+  "restore": {
+    "title": "Restore from a backup",
+    "body": "For a new or reset phone: bring back a Gathir backup .zip file.",
+    "button": "Restore from backup",
+    "sheetTitle": "This replaces everything on this phone",
+    "sheetBody": "All designs, photos, sales and customers on this phone will be swapped for the ones in the backup. What is on this phone now cannot be brought back.",
+    "sheetTip": "Not sure? Make a backup of this phone first.",
+    "backupFirst": "Make a backup first",
+    "confirm": "Choose backup file and replace",
+    "keep": "Keep this phone's data",
+    "restoring": "Restoring… Keep the app open.",
+    "restoringBody": "This can take a minute for many photos."
+  },
+  "result": {
+    "okTitle": "Your shop is back",
+    "okBody": "Restored {{designs}} designs, {{sales}} sales, {{customers}} customers and {{photos}} photos.",
+    "okPin": "Your PIN on this phone was kept.",
+    "open": "Open my shop",
+    "invalidTitle": "That is not a Gathir backup",
+    "newerTitle": "This backup needs a newer Gathir",
+    "failedTitle": "Restore did not finish",
+    "safe": "Nothing on this phone was changed.",
+    "tryAgain": "Choose another file",
+    "back": "Back to backups"
+  },
+  "storage": {
+    "title": "On this phone",
+    "photos_one": "{{count}} photo · {{size}}",
+    "photos_other": "{{count}} photos · {{size}}",
+    "data": "Shop data · {{size}}",
+    "free": "{{size}} free"
+  },
+  "reminder": {
+    "channel": "Backup reminders",
+    "title": "Time for a Gathir backup",
+    "body": "A week since your last backup. Two taps keep your shop safe."
   }
 }

@@ -108,6 +108,23 @@ export function reopenFollowUp(db: DbOrTx, eventId: string): void {
   db.update(customerEvents).set({ doneAt: null }).where(eq(customerEvents.id, eventId)).run();
 }
 
+/** A customer's open (not done) follow-ups with a due date, soonest first. */
+export function openFollowUpsFor(db: DbOrTx, customerId: string): CustomerEvent[] {
+  return db
+    .select()
+    .from(customerEvents)
+    .where(
+      and(
+        eq(customerEvents.customerId, customerId),
+        eq(customerEvents.kind, 'follow_up'),
+        isNull(customerEvents.doneAt),
+        isNotNull(customerEvents.dueAt),
+      ),
+    )
+    .orderBy(asc(customerEvents.dueAt))
+    .all();
+}
+
 /** Removes a timeline event (Undo right after adding a note or follow-up). */
 export function deleteEvent(db: DbOrTx, eventId: string): void {
   db.delete(customerEvents).where(eq(customerEvents.id, eventId)).run();

@@ -65,3 +65,37 @@ export function backupIsStale(lastBackupAt: number | null, now: number): boolean
   const a = backupAge(lastBackupAt, now);
   return a.kind === 'never' || (a.kind === 'days' && a.days > 7);
 }
+
+/** After Undo re-creates a deleted category (new id), puts it back in its old place. */
+export function orderWithReplacement(orderedIds: readonly string[], oldId: string, newId: string): string[] {
+  return orderedIds.map((id) => (id === oldId ? newId : id));
+}
+
+/** Free space below this, or below 10 % of the phone, is "almost full" (PLAN §4 state coverage). */
+export const LOW_SPACE_BYTES = 500 * 1024 * 1024;
+
+export function isStorageLow(availableBytes: number | null, totalBytes: number | null): boolean {
+  if (availableBytes === null || !Number.isFinite(availableBytes)) return false;
+  if (availableBytes < LOW_SPACE_BYTES) return true;
+  return totalBytes !== null && totalBytes > 0 && availableBytes / totalBytes < 0.1;
+}
+
+/** Share of the bar each part takes (0–1, rounded to 3 places), for the Storage screen. */
+export function storageShares(parts: Record<string, number>): Record<string, number> {
+  const total = Object.values(parts).reduce((s, v) => s + Math.max(0, v), 0);
+  return Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, total > 0 ? Math.round((Math.max(0, v) / total) * 1000) / 1000 : 0]));
+}
+
+/** Low-stock line for the More row: 0 → only sold-out, n → "n pieces or fewer". */
+export type LowStockDescription = { kind: 'off' } | { kind: 'atOrBelow'; count: number };
+
+export function describeLowStock(level: number): LowStockDescription {
+  const n = clampLowStock(level);
+  return n === 0 ? { kind: 'off' } : { kind: 'atOrBelow', count: n };
+}
+
+/** Owner number to store: '' when the field is emptied, null when typed but not a valid number. */
+export function ownerNumberToSave(text: string, e164: string | null): string | null {
+  if (text.trim() === '') return '';
+  return e164;
+}

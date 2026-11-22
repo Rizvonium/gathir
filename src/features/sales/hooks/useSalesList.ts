@@ -2,7 +2,8 @@
 import { useState } from 'react';
 
 import { useDbQuery, useSales, useToday } from '@/db/hooks';
-import { sales as salesTable, type PaymentMethod } from '@/db/schema';
+import { hasAnySale } from '@/db/repo/sales';
+import type { PaymentMethod } from '@/db/schema';
 
 import { emptyKind, groupSalesByDay, periodRange, totalsOf, type EmptyKind, type SalesListItem, type SalesPeriod, type SalesTotals } from '../logic/salesList';
 
@@ -26,7 +27,7 @@ export function useSalesList(): { model: SalesListModel; actions: SalesListActio
   const rows = useSales({ ...range, payment: payment ?? undefined });
   const isEmpty = rows.length === 0;
   // Only asked when the filtered list is empty: "never sold anything" gets its own empty state.
-  const anySalesEver = useDbQuery((d) => (isEmpty ? !!d.select({ id: salesTable.id }).from(salesTable).limit(1).get() : true), [isEmpty]);
+  const anySalesEver = useDbQuery((d) => (isEmpty ? hasAnySale(d) : true), [isEmpty]);
   const { items, stickyIndices } = groupSalesByDay(rows);
   return {
     model: {

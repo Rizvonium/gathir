@@ -4,7 +4,7 @@
  */
 import { and, count, eq, isNotNull, isNull } from 'drizzle-orm';
 
-import { categories, products, reports, shopSettings, type ShopSettings } from '@/db/schema';
+import { CUSTOMER_TAGS, categories, customers, products, reports, shopSettings, type CustomerTag, type ShopSettings } from '@/db/schema';
 import type { DbOrTx } from '@/db/types';
 
 export type MoreSummary = {
@@ -49,4 +49,12 @@ export function readMoreSummary(db: DbOrTx): MoreSummary {
     sentReports: sent,
     hasSample: sample,
   };
+}
+
+/** Customers per tag (Recently deleted left out), for the read-only Customer tags screen. */
+export function readTagCounts(db: DbOrTx): Record<CustomerTag, number> {
+  const rows = db.select({ tag: customers.tag, n: count() }).from(customers).where(isNull(customers.deletedAt)).groupBy(customers.tag).all();
+  const out = Object.fromEntries(CUSTOMER_TAGS.map((t) => [t, 0])) as Record<CustomerTag, number>;
+  for (const r of rows) out[r.tag] = r.n;
+  return out;
 }

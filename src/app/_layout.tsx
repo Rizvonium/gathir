@@ -17,6 +17,8 @@ import migrations from '../../drizzle/migrations';
 import { db } from '@/db/client';
 import { ensureSeedData } from '@/db/seed';
 import { recoverInterruptedRestore } from '@/features/backup/photoFolderSwap';
+import { useBackupReminderRouting } from '@/features/backup/useBackupReminderRouting';
+import { useFollowUpNotificationRouting } from '@/features/customers/followUpNotifications';
 import { AppLockGate } from '@/features/lock/AppLockGate';
 import { cleanupOldExports } from '@/lib/files';
 import { ToastProvider } from '@/ui/components/Toast';
@@ -29,8 +31,15 @@ void SplashScreen.preventAutoHideAsync();
 recoverInterruptedRestore();
 cleanupOldExports();
 
+/** Notification taps: follow-up reminder → customer profile, backup reminder → /backup (cold start too). */
+function NotificationRouting() {
+  useFollowUpNotificationRouting();
+  useBackupReminderRouting();
+  return null;
+}
+
 function Navigator() {
-  const { colors, scheme } = useTheme();
+  const { colors, radius, scheme } = useTheme();
   const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
   return (
     <ThemeProvider
@@ -39,7 +48,22 @@ function Navigator() {
         colors: { ...base.colors, background: colors.bg, card: colors.surface, text: colors.text, primary: colors.primary, border: colors.border },
       }}>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }} />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+        {/* Declared here (not only via <Stack.Screen> inside sell.tsx) so the very first
+            presentation is already a native form sheet on Android, not a push. */}
+        <Stack.Screen
+          name="sell"
+          options={{
+            presentation: 'formSheet',
+            sheetAllowedDetents: [0.92],
+            sheetGrabberVisible: true,
+            sheetCornerRadius: radius.sheet,
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.bg },
+          }}
+        />
+      </Stack>
+      <NotificationRouting />
     </ThemeProvider>
   );
 }

@@ -1,13 +1,6 @@
-import { Text, View } from 'react-native';
+import { MoreScreen } from '@/features/settings/components/MoreScreen';
 
-import { useTheme } from '@/ui/theme';
-
-/** Placeholder — replaced by the more feature. */
-export default function Screen() {
-  const { colors } = useTheme();
-  return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg }}>
-      <Text style={{ color: colors.text }}>more</Text>
-    </View>
-  );
+/** More tab: shop settings, owner reports, safety and this phone (PLAN §4.10). */
+export default function MoreRoute() {
+  return <MoreScreen />;
 }

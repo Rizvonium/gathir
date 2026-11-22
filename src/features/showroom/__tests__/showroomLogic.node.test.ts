@@ -1,3 +1,4 @@
+import { screensToLeave } from '../logic/leave';
 import {
   addLiked,
   clamp,
@@ -63,5 +64,19 @@ describe('liked items', () => {
   it('keeps first-liked order without duplicates', () => {
     expect(addLiked(['a'], 'b')).toEqual(['a', 'b']);
     expect(addLiked(['a', 'b'], 'a')).toEqual(['a', 'b']);
+  });
+});
+
+describe('screensToLeave', () => {
+  it('pops the leave screen and the Showroom', () => {
+    expect(screensToLeave(['(tabs)', 'showroom/index', 'showroom/leave'])).toBe(2);
+    expect(screensToLeave(['(tabs)', 'product/[id]', 'showroom/index', 'showroom/leave'])).toBe(2);
+  });
+  it('also pops screens opened from the Showroom (e.g. a card send left open)', () => {
+    expect(screensToLeave(['(tabs)', 'showroom/index', 'catalogue', 'showroom/leave'])).toBe(3);
+  });
+  it('goes Home when the Showroom was the first screen or is missing', () => {
+    expect(screensToLeave(['showroom/index', 'showroom/leave'])).toBeNull();
+    expect(screensToLeave(['(tabs)', 'showroom/leave'])).toBeNull();
   });
 });

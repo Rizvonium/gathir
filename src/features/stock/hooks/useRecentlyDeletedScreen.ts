@@ -6,6 +6,7 @@ import { db } from '@/db/client';
 import { useRecentlyDeleted, useToday } from '@/db/hooks';
 import { DuplicateCustomerError } from '@/db/repo/errors';
 import { restoreCustomer } from '@/db/repo/customers';
+import { rescheduleOpenFollowUps } from '@/features/customers/followUpNotifications';
 import { deletePhotoFiles } from '@/lib/photos';
 import { playHaptic, useToast } from '@/ui/components';
 
@@ -14,6 +15,7 @@ import { errorKeyOf, useStockActions } from './useStockActions';
 
 export function useRecentlyDeletedScreen() {
   const { t } = useTranslation('stock');
+  const { t: tc } = useTranslation('customers');
   const toast = useToast();
   const actions = useStockActions();
   const today = useToday();
@@ -33,6 +35,12 @@ export function useRecentlyDeletedScreen() {
   const restoreCustomerRow = (id: string, name: string) => {
     try {
       restoreCustomer(db, id);
+      // Deleting cancelled this customer's reminders; bring back the ones still ahead.
+      void rescheduleOpenFollowUps(db, id, (note) => ({
+        channelName: tc('followUp.channelName'),
+        title: tc('followUp.notifyTitle', { name }),
+        body: note.trim() || tc('followUp.notifyBody', { name }),
+      })).catch(() => undefined);
       playHaptic('success');
       toast.show({ message: t('deleted.restoredCustomer', { name }), tone: 'success' });
     } catch (e) {

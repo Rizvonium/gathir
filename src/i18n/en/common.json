@@ -34,5 +34,13 @@
     "generic": "Something went wrong. Your data is safe.",
     "dbFailed": "Could not open your shop data."
   },
-  "loading": "Opening your shop…"
+  "loading": "Opening your shop…",
+  "relative": {
+    "today": "today",
+    "yesterday": "yesterday",
+    "daysAgo_one": "{{count}} day ago",
+    "daysAgo_other": "{{count}} days ago",
+    "monthsAgo_one": "{{count}} month ago",
+    "monthsAgo_other": "{{count}} months ago"
+  }
 }

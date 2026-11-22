@@ -79,6 +79,11 @@ function toRows(db: DbOrTx, list: Sale[]): SaleListRow[] {
   });
 }
 
+/** True once the shop has recorded any sale at all (returned ones included). Cheap: LIMIT 1. */
+export function hasAnySale(db: DbOrTx): boolean {
+  return !!db.select({ id: sales.id }).from(sales).limit(1).get();
+}
+
 /** Sales in [from, to] (inclusive), newest first, including cancelled ones (check cancelledAt). */
 export function listSales(
   db: DbOrTx,

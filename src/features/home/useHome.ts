@@ -1,12 +1,11 @@
 /** Everything the Home tab shows and does. The screen only lays it out. */
-import * as Notifications from 'expo-notifications';
 import { useTranslation } from 'react-i18next';
 
 import { db } from '@/db/client';
 import { useDbQuery, useHomeSummary, useLowStockLevel, useToday } from '@/db/hooks';
 import type { DueFollowUp } from '@/db/repo/events';
-import { completeFollowUp, reopenFollowUp } from '@/db/repo/events';
 import { clearSampleData, insertSampleData } from '@/db/sampleData';
+import { finishFollowUp, undoFinishFollowUp, type ReminderTexts } from '@/features/customers/followUpNotifications';
 import { openWhatsAppChat } from '@/share/whatsapp';
 import { playHaptic, useToast } from '@/ui/components';
 
@@ -24,6 +23,7 @@ export type HomeActions = {
 
 export function useHome(): { model: HomeModel; actions: HomeActions } {
   const { t } = useTranslation('home');
+  const { t: tc } = useTranslation('customers');
   const toast = useToast();
   const summary = useHomeSummary();
   const lowStockLevel = useLowStockLevel();
@@ -56,24 +56,26 @@ export function useHome(): { model: HomeModel; actions: HomeActions } {
       }
     },
     completeFollowUp: (f) => {
-      try {
-        const notificationId = completeFollowUp(db, f.eventId);
-        if (notificationId) void Notifications.cancelScheduledNotificationAsync(notificationId).catch(() => undefined);
-        playHaptic('light');
-        toast.show({
-          message: t('followUps.doneToast'),
-          actionLabel: t('common:actions.undo'),
-          onAction: () => {
-            try {
-              reopenFollowUp(db, f.eventId);
-            } catch {
-              fail();
-            }
-          },
-        });
-      } catch {
-        fail();
-      }
+      // finishFollowUp marks it done, clears the stored reminder id and cancels the notification;
+      // Undo reopens it and re-arms the reminder when it is still ahead.
+      const texts: ReminderTexts = {
+        channelName: tc('followUp.channelName'),
+        title: tc('followUp.notifyTitle', { name: f.customerName }),
+        body: f.note.trim() || tc('followUp.notifyBody', { name: f.customerName }),
+      };
+      finishFollowUp(db, f.eventId).then(
+        () => {
+          playHaptic('light');
+          toast.show({
+            message: t('followUps.doneToast'),
+            actionLabel: t('common:actions.undo'),
+            onAction: () => {
+              undoFinishFollowUp(db, { eventId: f.eventId, customerId: f.customerId, dueAt: f.dueAt, texts }).catch(fail);
+            },
+          });
+        },
+        fail,
+      );
     },
     messageFollowUp: (f) => {
       void openWhatsAppChat(f.phone, t('followUps.message', { name: f.customerName })).then((ok) => {

@@ -50,12 +50,25 @@ export function formatDay(ms: number): string {
   return dayFmt.format(ms);
 }
 
-/** "3 days ago", "today", "yesterday" */
-export function relativeDays(ms: number, now: number): string {
+export type RelativeDays = { key: 'today' | 'yesterday' | 'daysAgo' | 'monthsAgo'; count: number };
+
+/**
+ * Translatable relative day: show it with `t(`common:relative.${r.key}`, { count: r.count })`
+ * (plural keys live in src/i18n/en/common.json → relative.*).
+ */
+export function relativeDaysKey(ms: number, now: number): RelativeDays {
   const days = Math.round((startOfDay(now) - startOfDay(ms)) / 86_400_000);
-  if (days <= 0) return 'today';
-  if (days === 1) return 'yesterday';
-  if (days < 30) return `${days} days ago`;
-  const months = Math.round(days / 30);
-  return months === 1 ? '1 month ago' : `${months} months ago`;
+  if (days <= 0) return { key: 'today', count: 0 };
+  if (days === 1) return { key: 'yesterday', count: 1 };
+  if (days < 30) return { key: 'daysAgo', count: days };
+  return { key: 'monthsAgo', count: Math.round(days / 30) };
+}
+
+/** "3 days ago", "today", "yesterday" — English only; UI should use relativeDaysKey + i18n. */
+export function relativeDays(ms: number, now: number): string {
+  const r = relativeDaysKey(ms, now);
+  if (r.key === 'today') return 'today';
+  if (r.key === 'yesterday') return 'yesterday';
+  if (r.key === 'daysAgo') return `${r.count} days ago`;
+  return r.count === 1 ? '1 month ago' : `${r.count} months ago`;
 }

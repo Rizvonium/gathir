@@ -99,6 +99,14 @@ export function pressKey(entry: string, key: PadKey): string {
 
 /* ───────────── When to lock ───────────── */
 
+/**
+ * True when the app-lock gate applies: a PIN is set AND first-launch setup has finished.
+ * Onboarding comes first, the lock only after it (no lock over an unfinished setup).
+ */
+export function lockGateActive(pinSet: boolean, onboarded: boolean): boolean {
+  return pinSet && onboarded;
+}
+
 /** True when the app was in the background long enough to ask for the PIN again. */
 export function shouldLockOnResume(backgroundAt: number | null, now: number): boolean {
   return backgroundAt !== null && now - backgroundAt > BACKGROUND_LOCK_MS;

@@ -111,6 +111,13 @@ The only time the internet is used is when WhatsApp itself delivers a message. W
 - **Catalogue PDF with rates** sent on WhatsApp: pick all stock, a category, or hand-picked items. See §6.
 - **Product card image** for a single piece (photo + name + rate + shop name) to send on WhatsApp.
 
+**Buying price & profit** (seller-only, never shown to customers)
+- Each product (optionally each colour) stores the **buying price** the seller paid. A different buying price per colour is allowed (e.g. a new batch cost more).
+- Every sale saves a snapshot of the buying price, so **profit = (selling rate − buying price) × qty − discount** stays correct even if prices change later.
+- Profit shown on: the sale screen (after selling), sale detail, the Sales tab (period profit and margin %), Home ("Today's profit"), product detail (profit earned on this design), and a **Profit** view: by day/week/month, by product, by category, by customer. Sales without a buying price are marked "profit unknown", not counted as 100% profit.
+- Stock value shown twice: at **buying price** (money tied up) and at **selling rate** (potential sales).
+- Privacy: buying prices and profit are hidden in Showroom, catalogues, product cards and bills. Optional "hide profit" eye toggle on screens a customer might see. The owner report includes buying price and profit only if the seller turns it on (setting).
+
 **Customer book**
 - Customer records: name, WhatsApp/phone, city, address (optional), type tag (*Regular*, *Wholesale/Dealer*, *Tourist*, *Walk-in*), notes.
 - Add from scratch, **pick from phone contacts**, or create during a sale in one step.
@@ -121,6 +128,7 @@ The only time the internet is used is when WhatsApp itself delivers a message. W
 - **Suggest for this customer**: in-stock items matching their likes, one tap to send as a catalogue.
 - Customer list: search, tag filters, sort by last visit / spend; quick WhatsApp and call buttons.
 - Privacy: delete a customer (sales stay, but the name is removed from them); record whether the customer agreed to receive WhatsApp catalogues.
+- **Personal catalogue per customer**: a saved shortlist of pieces chosen for that customer (from Showroom "they liked this", from product detail "Add to <customer>'s catalogue", or from suggestions), each with an optional **special rate** for that customer (e.g. wholesale or regular-customer price) and a note. Sold-out items are flagged. One tap sends **their catalogue** as a PDF ("Prepared for Mrs. Shah", their special rates shown instead of the normal rate). Every version sent is kept in their history, so the seller can see what was offered and at what price.
 
 **Owner reporting**
 - **Sales report PDF to the owner** on WhatsApp, with photos, for "since last report", today, this week, this month or custom dates. See §7.
@@ -207,7 +215,8 @@ Big actions: "+ Add product" (Stock), "Sell" (Home & product), "Showroom" (Home)
   - Header: name, tag, city, big **WhatsApp** and **Call** buttons.
   - Stats: total spent, purchases, last visit.
   - **Likes** chips (colours, crafts, budget), editable, with "learned from purchases" suggestions to accept.
-  - **Suggested for them**: in-stock designs matching their likes → **Send as catalogue**.
+  - **Their catalogue**: the customer's personal shortlist with special rates, availability and notes; add/remove items, edit special rates, **Send their catalogue**, and see past versions sent.
+  - **Suggested for them**: in-stock designs matching their likes → add to their catalogue or **Send as catalogue**.
   - **Timeline**: purchases (photo thumbnails), returns, catalogues sent, notes, follow-ups.
   - **Follow-up**: date + note → local reminder notification.
   - Actions: Edit, Sell to this customer, Send catalogue, Delete (with undo).
@@ -308,7 +317,7 @@ shop_settings  id, shop_name, seller_name, seller_code, phone, address, owner_wh
 
 categories     id, name, icon, sort_order, is_default
 products       id (uuid), code (short, e.g. GTH-0042), name, category_id, craft, material, size,
-               rate_paise, cost_paise?, notes, one_of_a_kind, cover_photo_id,
+               rate_paise, cost_paise? (buying price), notes, one_of_a_kind, cover_photo_id,
                created_at, updated_at, deleted_at?
 colours        id, product_id, name, hex, pieces (cached), sort_order, deleted_at?
 photos         id, product_id, file_name, thumb_name, width, height, sort_order
@@ -322,7 +331,9 @@ customer_events id, customer_id, kind (note|catalogue_sent|card_sent|follow_up|l
 sales          id, bill_no, customer_id?, customer_name_snapshot?, customer_phone_snapshot?,
                payment (cash|upi|card|other), discount_paise, total_paise, created_at,
                cancelled_at?, report_id?
-sale_items     id, sale_id, colour_id, product_name_snapshot, colour_name_snapshot,
+colours        … plus cost_paise? (per-colour buying price override)
+customer_catalogue_items  id, customer_id, product_id, special_rate_paise?, note, sort_order, added_at, removed_at?
+sale_items     id, sale_id, colour_id, cost_paise_snapshot? (buying price at time of sale), product_name_snapshot, colour_name_snapshot,
                qty, rate_paise, photo_snapshot_name
 reports        id, kind (owner|catalogue|bill), period_from, period_to, file_name,
                created_at, sent_at?, fingerprint
@@ -559,7 +570,7 @@ docs/                        PLAN.md (this file), DESIGN.md (later)
 3. **Your WhatsApp number** for reports, and whether you use **WhatsApp or WhatsApp Business**.
 4. **Brand**: is "Gathir" the app name? Do you have a logo/colours, or should the Pattern Lab create the mark?
 5. **Prices**: one rate per design, or different rates per colour? Do sellers bargain (we can make the rate editable at sale time, as planned)?
-6. **Cost price**: should sellers enter it, or should only you know it?
+6. **Buying price & profit** (decided: sellers enter it and see profit). Should the reports sent to you include buying prices and profit by default?
 7. **Customer PDF**: show exact piece counts to customers, or just "Available / Only 2 left"?
 8. **Languages**: is Urdu or Hindi needed for 1.0 rather than 1.1? Is Kashmiri needed?
 9. **Report schedule**: should the app remind sellers to send a report (daily/weekly)?

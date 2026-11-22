@@ -98,3 +98,44 @@ export function findCountDrift(tx: DbOrTx): { colourId: string; cached: number; 
     .all();
   return rows.filter((r) => r.cached !== r.ledger);
 }
+
+/** Reasons the seller can pick when lowering a count by hand (not a sale). */
+export const REDUCTION_REASONS = ['damaged', 'correction', 'returned_to_owner', 'sample'] as const;
+export type ReductionReason = (typeof REDUCTION_REASONS)[number];
+
+/** "+" stepper: adds `qty` pieces as an 'added' (restock) move. Returns the new count. */
+export function recordRestock(database: DbOrTx, colourId: string, qty: number, note = '', at?: number): number {
+  if (!Number.isInteger(qty) || qty <= 0) throw new StockError('Quantity must be a positive whole number', 'invalid');
+  return adjustStock(database, { colourId, delta: qty, reason: 'added', note, at });
+}
+
+/** "−" stepper with a reason chip: removes `qty` pieces. Returns the new count. */
+export function recordReduction(
+  database: DbOrTx,
+  colourId: string,
+  qty: number,
+  reason: ReductionReason,
+  note = '',
+  at?: number,
+): number {
+  if (!Number.isInteger(qty) || qty <= 0) throw new StockError('Quantity must be a positive whole number', 'invalid');
+  if (!REDUCTION_REASONS.includes(reason)) throw new StockError('Unknown reason', 'invalid');
+  return adjustStock(database, { colourId, delta: -qty, reason, note, at });
+}
+
+/**
+ * "Counted wrong": sets the count to `actualCount` with one 'correction' move.
+ * Returns the new count (no move is written when it already matches).
+ */
+export function recordCorrection(database: DbOrTx, colourId: string, actualCount: number, note = '', at?: number): number {
+  if (!Number.isInteger(actualCount) || actualCount < 0) {
+    throw new StockError('Count must be a whole number of at least 0', 'invalid');
+  }
+  return database.transaction((tx) => {
+    const colour = tx.select({ pieces: colours.pieces }).from(colours).where(eq(colours.id, colourId)).get();
+    if (!colour) throw new StockError('Colour not found', 'not_found');
+    const delta = actualCount - colour.pieces;
+    if (delta === 0) return colour.pieces;
+    return applyMove(tx, { colourId, delta, reason: 'correction', note, at });
+  });
+}

@@ -40,6 +40,7 @@ export const resources = {
 
 export const defaultNS = 'common';
 
+// eslint-disable-next-line import/no-named-as-default-member -- i18next's documented setup
 void i18n.use(initReactI18next).init({
   resources,
   lng: 'en',

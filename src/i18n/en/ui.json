@@ -1,1 +1,42 @@
-{}
+{
+  "money": {
+    "prefix": "₹"
+  },
+  "phone": {
+    "placeholder": "98765 43210",
+    "invalid": "Check the number. It needs all 10 digits."
+  },
+  "pieceBadge": {
+    "ok_one": "{{count}} piece",
+    "ok_other": "{{count}} pieces",
+    "low_one": "Only {{count}} left",
+    "low_other": "Only {{count}} left",
+    "out": "Sold out",
+    "a11y": {
+      "ok_one": "In stock, {{count}} piece",
+      "ok_other": "In stock, {{count}} pieces",
+      "low_one": "Low stock, only {{count}} left",
+      "low_other": "Low stock, only {{count}} left",
+      "out": "Sold out, no pieces left"
+    }
+  },
+  "stepper": {
+    "increase": "Add one, {{label}}",
+    "decrease": "Remove one, {{label}}"
+  },
+  "stat": {
+    "up": "Up {{value}} on yesterday",
+    "down": "Down {{value}} on yesterday",
+    "same": "Same as yesterday"
+  },
+  "colourDots": {
+    "item": "{{name}} {{count}}",
+    "more": "+{{count}}"
+  },
+  "progress": {
+    "step": "Step {{current}} of {{total}}"
+  },
+  "toast": {
+    "dismiss": "Close message"
+  }
+}

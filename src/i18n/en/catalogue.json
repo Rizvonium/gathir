@@ -1,1 +1,62 @@
-{}
+{
+  "pdf": {
+    "docTitle": "{{shop}}: {{title}}",
+    "cover": {
+      "defaultTitle": "Our collection",
+      "part": "Part {{index}} of {{total}}",
+      "designs_one": "{{n}} design",
+      "designs_other": "{{n}} designs",
+      "preparedFor": "Prepared for {{name}}",
+      "ratesValidTill": "Rates valid till {{date}}",
+      "whatsapp": "WhatsApp {{phone}}"
+    },
+    "card": {
+      "available": "Available",
+      "onlyLeft_one": "Only {{n}} left",
+      "onlyLeft_other": "Only {{n}} left",
+      "pieces_one": "{{n}} piece",
+      "pieces_other": "{{n}} pieces",
+      "soldOut": "Sold out",
+      "colourCount": "{{name}} {{n}}"
+    },
+    "order": {
+      "title": "How to order",
+      "lead": "Every piece is handmade in Kashmir. Tell us what you like and we will help you choose.",
+      "steps": {
+        "choose": "Note the code printed on each piece you like.",
+        "message": "Send the codes to us on WhatsApp. We reply with more photos, colours and the final price.",
+        "payUpi": "Pay by UPI or cash, and we pack and send your shawls.",
+        "pay": "Pay as agreed, and we pack and send your shawls."
+      },
+      "whatsapp": "WhatsApp",
+      "upi": "UPI ID",
+      "address": "Visit us",
+      "ratesValidTill": "Rates are valid till {{date}}.",
+      "thanks": "Thank you for looking through our collection.",
+      "signoff": "With warm regards from {{shop}}"
+    },
+    "footer": {
+      "page": "Page {{page}} of {{total}}"
+    },
+    "fileName": {
+      "base": "Catalogue - {{shop}} - {{date}}",
+      "part": "Part {{index}} of {{total}}"
+    }
+  },
+  "share": {
+    "message": {
+      "greeting": "Namaste {{name}},",
+      "greetingNoName": "Namaste,",
+      "intro_one": "Here is our {{title}} from {{shop}}: {{n}} design.",
+      "intro_other": "Here is our {{title}} from {{shop}}: {{n}} designs.",
+      "part": "Part {{index}} of {{total}}.",
+      "ratesValidTill": "Rates valid till {{date}}.",
+      "outro": "Reply with the code of any piece you like.",
+      "defaultTitle": "collection"
+    },
+    "card": {
+      "rateOnRequest": "Ask for the rate",
+      "code": "Code {{code}}"
+    }
+  }
+}

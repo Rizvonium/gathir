@@ -17,6 +17,7 @@ module.exports = {
       preset: 'jest-expo/android',
       roots: ['<rootDir>/src'],
       testMatch: ['**/__tests__/**/*.rn.test.tsx'],
+      setupFiles: ['<rootDir>/src/test/rnSetup.ts'],
       moduleNameMapper: { '^@/(.*)$': '<rootDir>/src/$1' },
     },
   ],

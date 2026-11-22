@@ -1,1 +1,148 @@
-{}
+{
+  "pdf": {
+    "docTitle": "Sales report {{number}}: {{shop}}",
+    "header": {
+      "title": "Sales report",
+      "number": "Report no. {{number}}",
+      "period": "{{from}} – {{to}}",
+      "generated": "Made on {{date}}, {{time}}"
+    },
+    "summary": {
+      "title": "Summary",
+      "pieces": "Pieces sold",
+      "amount": "Total amount",
+      "bills": "Bills",
+      "discounts": "Discounts given",
+      "byPayment": "By payment",
+      "byCategory": "By category",
+      "colBills": "Bills",
+      "colPieces": "Pieces",
+      "colAmount": "Amount",
+      "uncategorised": "No category",
+      "returns": "Returned or cancelled",
+      "cancelledOn": "Cancelled {{date}}",
+      "noSales": "No sales in this period."
+    },
+    "payment": {
+      "cash": "Cash",
+      "upi": "UPI",
+      "card": "Card",
+      "other": "Other"
+    },
+    "sales": {
+      "title": "Every sale",
+      "walkIn": "Walk-in customer",
+      "bill": "Bill {{no}}",
+      "colItem": "Design",
+      "colColour": "Colour",
+      "colQty": "Qty",
+      "colRate": "Rate",
+      "colAmount": "Amount",
+      "discount": "Discount {{amount}}",
+      "total": "Total {{amount}}"
+    },
+    "tags": {
+      "regular": "Regular",
+      "wholesale": "Wholesale",
+      "tourist": "Tourist",
+      "walk_in": "Walk-in",
+      "other": "Other"
+    },
+    "customers": {
+      "title": "Customers this period",
+      "new": "New customers: {{n}}",
+      "top": "Top customers by spend",
+      "purchases_one": "{{n}} purchase",
+      "purchases_other": "{{n}} purchases",
+      "catalogues": "Catalogues sent: {{n}}",
+      "none": "None in this period."
+    },
+    "changes": {
+      "title": "Stock changes not from sales",
+      "intro": "Pieces added, returned, damaged, corrected or deleted, with the reason and time.",
+      "none": "No other stock changes in this period.",
+      "colWhen": "When",
+      "colDesign": "Design",
+      "colColour": "Colour",
+      "colChange": "Change",
+      "colReason": "Reason",
+      "colNote": "Note"
+    },
+    "reasons": {
+      "added": "Added",
+      "sold": "Sold",
+      "returned": "Returned by customer",
+      "damaged": "Damaged",
+      "correction": "Count corrected",
+      "returned_to_owner": "Returned to owner",
+      "sample": "Given as sample",
+      "deleted": "Design deleted",
+      "restored": "Design restored",
+      "opening": "Opening stock"
+    },
+    "stock": {
+      "title": "Current stock",
+      "totals": "{{pieces}} pieces in {{designs}} designs. Low: {{low}}. Sold out: {{out}}.",
+      "colDesign": "Design",
+      "colColours": "Colours and pieces",
+      "colPieces": "Pieces",
+      "colRate": "Rate",
+      "colStatus": "Status",
+      "value": "Total pieces and stock value at rate",
+      "none": "No designs in stock.",
+      "status": {
+        "in": "In stock",
+        "low": "Low",
+        "out": "Sold out"
+      }
+    },
+    "footer": {
+      "app": "Made with Gathir {{version}}",
+      "report": "Report no. {{number}}",
+      "fingerprint": "Fingerprint",
+      "verify": "The fingerprint changes if the report data is edited."
+    },
+    "bill": {
+      "docTitle": "Bill {{no}}: {{shop}}",
+      "billNo": "Bill no.",
+      "date": "Date",
+      "customer": "Customer",
+      "walkIn": "Walk-in customer",
+      "colItem": "Item",
+      "colQtyRate": "Qty × rate",
+      "colAmount": "Amount",
+      "subtotal": "Subtotal",
+      "discount": "Discount",
+      "total": "Total",
+      "paidBy": "Paid by {{method}}",
+      "upi": "UPI ID: {{upi}}",
+      "thanks": "Thank you for shopping with us.",
+      "cancelled": "Cancelled"
+    },
+    "fileName": {
+      "report": "Sales report {{number}} - {{shop}} - {{date}}",
+      "bill": "Bill {{no}} - {{shop}}",
+      "card": "{{name}} - {{shop}}"
+    }
+  },
+  "share": {
+    "report": {
+      "title": "Gathir report — {{shop}} ({{seller}})",
+      "titleNoSeller": "Gathir report — {{shop}}",
+      "period": "{{from}} – {{to}}",
+      "sold": "Sold: {{pieces}} · {{amount}}",
+      "pieces_one": "{{n}} piece",
+      "pieces_other": "{{n}} pieces",
+      "designs_one": "{{n}} design",
+      "designs_other": "{{n}} designs",
+      "inStock": "In stock: {{pieces}} · {{designs}} · {{low}} low",
+      "attached": "PDF attached."
+    },
+    "bill": {
+      "title": "Bill {{no}} from {{shop}}",
+      "line": "{{date}} · {{amount}} ({{payment}})",
+      "upi": "UPI: {{upi}}",
+      "thanks": "Thank you for shopping with us."
+    }
+  }
+}

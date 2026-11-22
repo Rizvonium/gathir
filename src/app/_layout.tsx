@@ -16,9 +16,17 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import migrations from '../../drizzle/migrations';
 import { db } from '@/db/client';
 import { ensureSeedData } from '@/db/seed';
+import { recoverInterruptedRestore } from '@/features/backup/photoFolderSwap';
+import { cleanupOldExports } from '@/lib/files';
+import { ToastProvider } from '@/ui/components/Toast';
 import { AppThemeProvider, useTheme } from '@/ui/theme';
 
 void SplashScreen.preventAutoHideAsync();
+
+// Start-up housekeeping, once per launch and before any screen reads photos.
+// Both are synchronous and never throw.
+recoverInterruptedRestore();
+cleanupOldExports();
 
 function Navigator() {
   const { colors, scheme } = useTheme();
@@ -68,7 +76,9 @@ export default function RootLayout() {
     <GestureHandlerRootView style={styles.flex}>
       <KeyboardProvider>
         <AppThemeProvider>
-          <Navigator />
+          <ToastProvider>
+            <Navigator />
+          </ToastProvider>
         </AppThemeProvider>
       </KeyboardProvider>
     </GestureHandlerRootView>

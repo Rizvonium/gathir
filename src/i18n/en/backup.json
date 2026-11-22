@@ -1,1 +1,13 @@
-{}
+{
+  "errors": {
+    "cancelled": "No backup file was chosen.",
+    "invalid": "This file is not a Gathir backup, or it is damaged. Choose the .zip file Gathir made.",
+    "newer_version": "This backup was made by a newer version of Gathir. Update the app, then restore again.",
+    "failed": "Restore did not finish. Your shop data and photos were not changed. Try again.",
+    "createFailed": "Could not make the backup. Check that the phone has free space, then try again.",
+    "shareUnavailable": "Sharing is not available on this phone.",
+    "photoSaveFailed": "Could not save this photo. Try another one.",
+    "cameraDenied": "Allow camera access in Settings to take photos.",
+    "pickFailed": "Could not open photos. Try again."
+  }
+}

@@ -25,6 +25,7 @@ export function useReportPeriod() {
     customFrom: flow.customFrom,
     customTo: flow.customTo,
     includePhones: basics.includeCustomerPhones,
+    includeProfit: basics.includeProfit,
     alsoPhotos: flow.alsoPhotos,
     setKind: (kind: PeriodKind) => {
       if (kind === 'custom' && flow.customFrom === null) {
@@ -36,6 +37,9 @@ export function useReportPeriod() {
     pickDay: (day: number) => flow.set({ kind: 'custom', ...pickCustomDay({ from: flow.customFrom, to: flow.customTo }, day) }),
     setIncludePhones: (on: boolean) => {
       updateSettings(db, { reportIncludesCustomerPhones: on });
+    },
+    setIncludeProfit: (on: boolean) => {
+      updateSettings(db, { reportIncludesProfit: on });
     },
     setAlsoPhotos: (on: boolean) => flow.set({ alsoPhotos: on }),
   };

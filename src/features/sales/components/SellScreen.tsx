@@ -30,6 +30,9 @@ import {
 import { ChinarLeaves } from '@/ui/patterns';
 import { useTheme } from '@/ui/theme';
 
+import { cartProfit } from '@/features/profit/logic';
+import { useProfitVisible } from '@/features/profit/privacy';
+
 import { useSellSheet, type SellParams, type SoldSale } from '../hooks/useSellSheet';
 import { useSendBill } from '../hooks/useSendBill';
 import { soldMessage } from '../logic/saleMessages';
@@ -38,6 +41,7 @@ import { PAYMENT_ICONS } from '../logic/salesList';
 import { CustomerPickerField } from './CustomerPickerField';
 import { ProductThumb } from './SaleBits';
 import { SellProductPicker } from './SellProductPicker';
+import { SellProfit } from './SellProfit';
 
 const NEW_PRODUCT = '/product/new' as const;
 const SALES = '/sales' as const;
@@ -56,6 +60,7 @@ export function SellScreen({ params }: { params: SellParams }) {
   const toast = useToast();
   const c = useSellSheet(params);
   const bill = useSendBill();
+  const profitVisible = useProfitVisible();
   const [sold, setSold] = useState<SoldSale | null>(null);
   const [celebrating, setCelebrating] = useState(false);
   const [showMore, setShowMore] = useState(() => c.state.discountPaise !== null || c.state.note !== '');
@@ -130,6 +135,9 @@ export function SellScreen({ params }: { params: SellParams }) {
               </AppText>
             </View>
           ) : null}
+          <View style={styles.stretch}>
+            <SellProfit profit={cartProfit(sold.lines, c.state.discountPaise)} visible={profitVisible} testID="sell-done-profit" />
+          </View>
           {!celebrating && sold.customerId ? (
             <View style={[styles.stretch, { gap: space.sm }]}>
               <Button
@@ -170,6 +178,7 @@ export function SellScreen({ params }: { params: SellParams }) {
 
   const footer = (
     <>
+      {summary.lines.length > 0 ? <SellProfit profit={cartProfit(summary.lines, c.state.discountPaise)} visible={profitVisible} /> : null}
       {c.error ? (
         <View style={[styles.row, { gap: space.sm }]} accessibilityLiveRegion="polite">
           <Icon name="error-outline" tone="danger" size={20} />

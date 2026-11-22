@@ -29,6 +29,11 @@ const mockProducts = [
   require('./catalogueMocks').product('p2', { categoryId: 'cat2' }),
   require('./catalogueMocks').product('p3', { totalPieces: 0, colours: [] }),
 ];
+const mockTheirs = [
+  { id: 'i1', productId: 'p2', name: 'Shawl p2', ratePaise: 600_000, totalPieces: 4, coverThumb: null, productDeleted: false },
+  { id: 'i2', productId: 'p3', name: 'Shawl p3', ratePaise: 650_000, totalPieces: 0, coverThumb: null, productDeleted: false },
+  { id: 'i3', productId: 'gone', name: 'Old shawl', ratePaise: 650_000, totalPieces: 0, coverThumb: null, productDeleted: true },
+];
 const mockCustomers = [
   { id: 'c1', name: 'Mrs Shah', phone: '+919876543210', city: 'Srinagar' },
   { id: 'c2', name: 'Rafiq Dar', phone: null, city: '' },
@@ -47,6 +52,7 @@ jest.mock('@/db/hooks', () => ({
     { id: 'cat2', name: 'Stoles' },
   ],
   useSuggestedProducts: (id?: string) => (id ? [mockProducts[1]] : []),
+  useCustomerCatalogue: (id?: string) => (id === 'c1' ? mockTheirs : []),
   useLowStockLevel: () => 1,
   useSettings: () => mockSettings,
   useCustomers: ({ search }: { search?: string }) => mockCustomers.filter((c) => !search || c.name.toLowerCase().includes(search.toLowerCase())),
@@ -86,6 +92,25 @@ describe('Step 1: what to send', () => {
     expect(screen.getByText('Next: 2 designs')).toBeTruthy();
   });
 
+  it('opens on their catalogue (mode=customer), flags sold-out pieces and leaves deleted ones out', async () => {
+    useCatalogueFlow.getState().start({ customerId: 'c1', mode: 'customer' });
+    await renderWithTheme(<SourceStep />);
+    expect(screen.getByLabelText('Mrs Shah’s catalogue (2 pieces)')).toBeTruthy();
+    expect(screen.getByText('Next: 2 designs')).toBeTruthy();
+    expect(screen.getByTestId('source-theirs-sold-out')).toHaveTextContent(/1 piece is sold out/);
+    expect(screen.getByText('₹6,000')).toBeTruthy();
+    expect(screen.queryByText('Old shawl')).toBeNull();
+    await fireEvent.press(screen.getByTestId('source-next'));
+    expect(router.push).toHaveBeenCalledWith('/catalogue/options');
+  });
+
+  it('offers their catalogue next to suggestions when opened for a customer', async () => {
+    useCatalogueFlow.getState().start({ customerId: 'c1' });
+    await renderWithTheme(<SourceStep />);
+    await fireEvent.press(screen.getByLabelText('Mrs Shah’s catalogue (2 pieces)'));
+    expect(useCatalogueFlow.getState().source.kind).toBe('customer');
+  });
+
   it('blocks Next until something is picked', async () => {
     useCatalogueFlow.getState().start({});
     await renderWithTheme(<SourceStep />);
@@ -111,6 +136,21 @@ describe('Step 2: options', () => {
     expect(stored.personalNote).toBeUndefined();
     expect(mockUpdateSettings.mock.calls[0][1].catalogueStyle).toBe('ivory');
     expect(router.push).toHaveBeenCalledWith('/catalogue/preview');
+  });
+});
+
+describe('Step 2 for their catalogue', () => {
+  it('leaves sold-out pieces out by default without changing the remembered choice', async () => {
+    mockSettings.catalogueOptionsJson = JSON.stringify({ title: 'Winter collection', hideSoldOut: false });
+    try {
+      useCatalogueFlow.getState().start({ customerId: 'c1', mode: 'customer' });
+      await renderWithTheme(<OptionsStep />);
+      expect(useCatalogueFlow.getState().form?.hideSoldOut).toBe(true);
+      await fireEvent.press(screen.getByTestId('options-preview'));
+      expect(JSON.parse(mockUpdateSettings.mock.calls[0][1].catalogueOptionsJson).hideSoldOut).toBe(false);
+    } finally {
+      mockSettings.catalogueOptionsJson = JSON.stringify({ title: 'Winter collection', showRates: true });
+    }
   });
 });
 

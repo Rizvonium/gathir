@@ -187,5 +187,6 @@ export function stockHistory(db: DbOrTx, productId: string): StockHistoryRow[] {
     .where(eq(stockMoves.productId, productId))
     .orderBy(desc(stockMoves.createdAt), sql`"stock_moves"."rowid" desc`)
     .all()
-    .map((r) => ({ ...r, note: displayNote(r.note), billNo: r.billNo ?? null }));
+    // A voided sale no longer exists: keep the move, drop the dead link.
+    .map((r) => ({ ...r, note: displayNote(r.note), billNo: r.billNo ?? null, saleId: r.billNo ? r.saleId : null }));
 }

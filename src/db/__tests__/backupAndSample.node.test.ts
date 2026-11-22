@@ -1,13 +1,23 @@
-import { sql } from 'drizzle-orm';
+import fs from 'node:fs';
+import path from 'node:path';
 
-import { exportAllTables, importAllTables } from '@/db/repo/backup';
+import Database from 'better-sqlite3';
+import { sql } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
+
+import { BACKUP_VERSION, exportAllTables, importAllTables } from '@/db/repo/backup';
+import { addToCustomerCatalogue, listCustomerCatalogue } from '@/db/repo/customerCatalogue';
+import { createCustomer } from '@/db/repo/customers';
+import { profitSummary } from '@/db/repo/profit';
 import { createCategory, deleteCategory, listCategories, renameCategory, reorderCategories } from '@/db/repo/categories';
 import { RepoError } from '@/db/repo/errors';
-import { listProducts } from '@/db/repo/products';
-import { listSales } from '@/db/repo/sales';
-import { getSettings, markOnboarded, nextProductCode } from '@/db/repo/settings';
+import { listProducts, renameColour } from '@/db/repo/products';
+import { createSale, listSales } from '@/db/repo/sales';
+import { getSettings, markOnboarded, nextProductCode, updateSettings } from '@/db/repo/settings';
 import { clearSampleData, hasSampleData, insertSampleData } from '@/db/sampleData';
-import { products, sales } from '@/db/schema';
+import * as schema from '@/db/schema';
+import { colours, customerCatalogueItems, products, saleItems, sales } from '@/db/schema';
+import { CURRENT_SCHEMA_VERSION } from '@/features/backup/schemaVersion';
 import { createTestDb } from '@/test/testDb';
 import type { DbOrTx } from '@/db/types';
 
@@ -21,6 +31,8 @@ function orphanCount(db: DbOrTx): number {
     q('select count(*) as n from stock_moves where colour_id not in (select id from colours)') +
     q('select count(*) as n from sale_items where sale_id not in (select id from sales)') +
     q('select count(*) as n from customer_events where customer_id not in (select id from customers)') +
+    q('select count(*) as n from customer_catalogue_items where customer_id not in (select id from customers)') +
+    q('select count(*) as n from customer_catalogue_items where product_id not in (select id from products)') +
     q('select count(*) as n from sales where customer_id is not null and customer_id not in (select id from customers)')
   );
 }
@@ -106,5 +118,85 @@ describe('settings and categories', () => {
     deleteCategory(db, unused);
     expect(listCategories(db).some((c) => c.id === unused)).toBe(false);
     expect(() => createCategory(db, { name: '  ' })).toThrow(RepoError);
+  });
+});
+
+describe('profit & personal catalogue data in backups and migrations', () => {
+  function shopWithNewData(db: DbOrTx) {
+    const p = addTestProduct(db, { name: 'Sozni stole', costPaise: 400_000 });
+    renameColour(db, p.colourIds[1], { costPaise: 450_000 }, T0);
+    const shah = createCustomer(db, { name: 'Mrs. Shah', phone: '9876543210' }, T0);
+    addToCustomerCatalogue(db, { customerId: shah, productId: p.productId, specialRatePaise: 600_000, note: 'Wedding' }, T0);
+    createSale(db, { items: [{ colourId: p.colourIds[1], qty: 1, ratePaise: 650_000 }], customerId: shah }, T0);
+    updateSettings(db, { reportIncludesProfit: true }, T0);
+    return { ...p, shah };
+  }
+
+  it('round-trips the new table and columns', () => {
+    const db = createTestDb();
+    const { shah } = shopWithNewData(db);
+    const exported = JSON.parse(JSON.stringify(exportAllTables(db, T0)));
+    expect(exported.version).toBe(BACKUP_VERSION);
+    expect(exported.tables.customer_catalogue_items).toHaveLength(1);
+    const fresh = createTestDb({ seed: false });
+    importAllTables(fresh, exported);
+    expect(exportAllTables(fresh, T0)).toEqual(exportAllTables(db, T0));
+    expect(listCustomerCatalogue(fresh, shah)[0]).toMatchObject({ specialRatePaise: 600_000, note: 'Wedding' });
+    expect(getSettings(fresh).reportIncludesProfit).toBe(true);
+    expect(profitSummary(fresh, { from: T0, to: T0 }).profitPaise).toBe(200_000);
+  });
+
+  it('restores an older (version 1) backup without the new table or columns, filling defaults', () => {
+    const db = createTestDb();
+    const { productId, shah } = shopWithNewData(db);
+    const v1 = JSON.parse(JSON.stringify(exportAllTables(db, T0)));
+    v1.version = 1;
+    delete v1.tables.customer_catalogue_items;
+    for (const row of v1.tables.colours) delete row.costPaise;
+    for (const row of v1.tables.sale_items) delete row.costPaiseSnapshot;
+    for (const row of v1.tables.shop_settings) delete row.reportIncludesProfit;
+
+    const fresh = createTestDb();
+    importAllTables(fresh, v1);
+    expect(getSettings(fresh).reportIncludesProfit).toBe(false);
+    expect(fresh.select().from(colours).all().every((c) => c.costPaise === null)).toBe(true);
+    expect(listCustomerCatalogue(fresh, shah)).toEqual([]);
+    expect(listProducts(fresh).map((p) => p.id)).toEqual([productId]);
+    // Old sales had no buying-price snapshot: their profit is unknown, not 100 %.
+    expect(profitSummary(fresh, { from: T0, to: T0 })).toMatchObject({ profitPaise: 0, unknownCostItems: 1, revenuePaise: 650_000 });
+    expectNoDrift(fresh);
+    expect(orphanCount(fresh)).toBe(0);
+  });
+
+  it('the profit_catalogues migration upgrades a version-1 database in place', () => {
+    const dir = path.join(__dirname, '../../../drizzle');
+    const files = fs
+      .readdirSync(dir)
+      .filter((f) => f.endsWith('.sql'))
+      .sort();
+    expect(files.length).toBe(CURRENT_SCHEMA_VERSION);
+    const run = (sqlite: Database.Database, file: string) => {
+      for (const stmt of fs.readFileSync(path.join(dir, file), 'utf8').split('--> statement-breakpoint')) if (stmt.trim()) sqlite.exec(stmt);
+    };
+    const sqlite = new Database(':memory:');
+    sqlite.pragma('foreign_keys = ON');
+    run(sqlite, files[0]);
+    sqlite.exec(`insert into shop_settings (id, created_at, updated_at) values (1, 1, 1)`);
+    sqlite.exec(`insert into products (id, code, name, rate_paise, cost_paise, created_at, updated_at) values ('p1', 'GTH-0001', 'Stole', 650000, 400000, 1, 1)`);
+    sqlite.exec(`insert into colours (id, product_id, name, hex, pieces, created_at, updated_at) values ('c1', 'p1', 'Red', '#C0262D', 0, 1, 1)`);
+    sqlite.exec(`insert into sales (id, bill_no, total_paise, created_at) values ('s1', 'B-2026-0001', 650000, 1)`);
+    sqlite.exec(
+      `insert into sale_items (id, sale_id, product_id, colour_id, product_name_snapshot, colour_name_snapshot, qty, rate_paise) values ('i1', 's1', 'p1', 'c1', 'Stole', 'Red', 1, 650000)`,
+    );
+    for (const f of files.slice(1)) run(sqlite, f);
+    const db = drizzle(sqlite, { schema });
+    expect(getSettings(db).reportIncludesProfit).toBe(false);
+    expect(db.select().from(colours).get()?.costPaise).toBeNull();
+    expect(db.select().from(saleItems).get()?.costPaiseSnapshot).toBeNull();
+    expect(db.select().from(customerCatalogueItems).all()).toEqual([]);
+    // New writes work on the upgraded database.
+    const shah = createCustomer(db, { name: 'Mrs. Shah' }, T0);
+    addToCustomerCatalogue(db, { customerId: shah, productId: 'p1' }, T0);
+    expect(listCustomerCatalogue(db, shah)).toHaveLength(1);
   });
 });

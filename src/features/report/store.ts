@@ -73,8 +73,8 @@ export const useReportFlow = create<ReportFlow>((set) => ({
  * version for previews, and a sales signature for a pending send (recording the report itself
  * is a DB write, which must not make a retry render a second PDF with a new number).
  */
-export function reportKey(range: { from: number; to: number }, includePhones: boolean, stamp: string | number): string {
-  return `${range.from}|${range.to}|${includePhones ? 1 : 0}|${stamp}`;
+export function reportKey(range: { from: number; to: number }, includePhones: boolean, stamp: string | number, includeProfit: boolean = false): string {
+  return `${range.from}|${range.to}|${includePhones ? 1 : 0}|${stamp}${includeProfit ? '|profit' : ''}`;
 }
 
 export function salesStamp(s: { count: number; pieces: number; amountPaise: number }): string {

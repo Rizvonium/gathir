@@ -42,6 +42,9 @@
     "saveFailed": "Could not save this customer. Try again.",
     "card": "Photo of this shawl",
     "mini_one": "Small catalogue: {{count}} shawl",
-    "mini_other": "Small catalogue: {{count}} shawls they liked"
+    "mini_other": "Small catalogue: {{count}} shawls they liked",
+    "saveToCatalogue": "Save to {{name}}’s catalogue",
+    "inCatalogue": "In {{name}}’s catalogue",
+    "savedToCatalogue": "Saved to {{name}}’s catalogue"
   }
 }

@@ -131,7 +131,11 @@
       "colour": "Their colour",
       "budget": "In budget"
     },
-    "itemLabel": "{{name}}, {{rate}}. Open design"
+    "itemLabel": "{{name}}, {{rate}}. Open design",
+    "addToCatalogue": "Their catalogue",
+    "addToCatalogueHint": "Adds {{name}} to their catalogue",
+    "inCatalogue": "In their catalogue",
+    "inCatalogueLabel": "{{name}} is in their catalogue"
   },
   "followUp": {
     "title": "Follow-ups",
@@ -223,5 +227,79 @@
     "useExisting": "Use {{name}}",
     "more": "More details",
     "error": "Could not save. Your data is safe; try again."
+  },
+  "theirCatalogue": {
+    "title": "Their catalogue",
+    "empty": "Save shawls chosen for {{name}} here, with a special rate if you like. Send them as their own catalogue in one tap.",
+    "arrange": "Arrange",
+    "doneArranging": "Done",
+    "add": "Add pieces",
+    "send_one": "Send their catalogue ({{count}} piece)",
+    "send_other": "Send their catalogue ({{count}} pieces)",
+    "soldOutNote_one": "{{count}} piece is sold out. It is left out of the PDF unless you include sold-out pieces.",
+    "soldOutNote_other": "{{count}} pieces are sold out. They are left out of the PDF unless you include sold-out pieces.",
+    "off": "{{pct}}% off",
+    "rateSpecialA11y": "Special rate {{rate}}, normal rate {{normal}}",
+    "availability": {
+      "in": "Available",
+      "low": "Few left",
+      "out": "Sold out",
+      "deleted": "Deleted design, not sent"
+    },
+    "editHint": "Edit the special rate and note",
+    "moveUp": "Move {{name}} up",
+    "moveDown": "Move {{name}} down",
+    "removeLabel": "Remove {{name}} from their catalogue",
+    "removed": "{{name}} taken out of their catalogue",
+    "alreadyBack": "{{name}} is already in their catalogue",
+    "saved": "Saved",
+    "failed": "Could not save. Try again.",
+    "added_one": "Added to {{name}}’s catalogue",
+    "added_other": "{{count}} pieces added to {{name}}’s catalogue",
+    "addedOne": "Added to {{name}}’s catalogue",
+    "open": "Open",
+    "pickCustomer": "Add to a customer’s catalogue",
+    "addTo": "Add to {{name}}’s catalogue",
+    "alreadyIn": "In their catalogue",
+    "sheet": {
+      "normalRate": "Normal rate {{rate}}",
+      "rateLabel": "Special rate for them",
+      "rateHelper": "Leave empty to use the normal rate.",
+      "rateOff": "{{pct}}% below the normal rate",
+      "rateAbove": "{{pct}}% above the normal rate",
+      "noteLabel": "Note (optional)",
+      "notePlaceholder": "Wants it for her daughter’s wedding",
+      "save": "Save",
+      "openDesign": "Open design",
+      "remove": "Remove"
+    },
+    "picker": {
+      "title": "Add pieces for {{name}}",
+      "search": "Search name, code or craft",
+      "categories": "Categories",
+      "hint": "Tap the shawls to add. Ticked green ones are already in {{name}}’s catalogue.",
+      "add_one": "Add {{count}} piece",
+      "add_other": "Add {{count}} pieces",
+      "addNone": "Tap shawls to add",
+      "noMatch": "No shawls match. Try another word or category.",
+      "noProducts": "No shawls yet",
+      "addProduct": "Add a shawl"
+    },
+    "versions": {
+      "title": "Versions sent",
+      "items_one": "{{count}} design",
+      "items_other": "{{count}} designs",
+      "special_one": "{{count}} at a special rate",
+      "special_other": "{{count}} at special rates",
+      "personal": "Their catalogue",
+      "general": "Catalogue",
+      "all": "Show all {{count}}",
+      "fewer": "Show fewer",
+      "sheetTitle": "Sent on {{date}}",
+      "noRates_one": "{{count}} design. Rates were not kept for this older send.",
+      "noRates_other": "{{count}} designs. Rates were not kept for this older send.",
+      "specialTag": "Special",
+      "noRate": "No rate shown"
+    }
   }
 }

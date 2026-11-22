@@ -16,7 +16,7 @@ export function useReportPreview() {
   const set = useReportFlow((s) => s.set);
   const [attempt, setAttempt] = useState(0);
   const [failedKey, setFailedKey] = useState<string | null>(null);
-  const key = reportKey(p.range, p.includePhones, version);
+  const key = reportKey(p.range, p.includePhones, version, p.includeProfit);
   const ready = prepared?.key === key;
 
   useEffect(() => {

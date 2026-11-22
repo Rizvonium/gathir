@@ -3,14 +3,15 @@
  * selection, then re-renders the HTML instantly when only words or layout change.
  */
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { db } from '@/db/client';
-import { buildCatalogueData } from '@/db/repo/reports';
 import { categoryName } from '@/db/repo/catalogueData';
 import { photoAsDataUri } from '@/lib/photos';
 import { CATALOGUE_PHOTO, cataloguePhotoNames, getPdfFontCss, loadPhotoMap, MAX_ITEMS_PER_PART, renderCatalogueHtml } from '@/pdf';
 import type { CatalogueDoc } from '@/pdf/types';
 
+import { buildFlowData } from '../logic/flowData';
 import { dataOptions, type CatalogueForm } from '../logic/options';
 import { catalogueParts, partStats, type PartStats } from '../logic/parts';
 import { selectionKey, toSelection } from '../logic/selection';
@@ -23,8 +24,9 @@ export type PreviewStatus = 'loading' | 'ready' | 'empty' | 'error';
 /** The selection + data-shaping options a prepared catalogue was built for. */
 export function useSelectionKey(): { key: string | null; selection: ReturnType<typeof toSelection>; form: CatalogueForm | null } {
   const source = useCatalogueFlow((s) => s.source);
+  const customerId = useCatalogueFlow((s) => s.customerId);
   const form = useLoadedForm();
-  const selection = toSelection(source, source.suggestedIds ?? []);
+  const selection = toSelection(source, source.suggestedIds ?? [], customerId);
   const key = selection && form ? `${selectionKey(selection)}|${JSON.stringify(dataOptions(form))}` : null;
   return { key, selection, form };
 }
@@ -46,6 +48,7 @@ function prepareOnce(id: string, build: () => Promise<Prepared>): Promise<Prepar
 
 /** Builds the prepared catalogue for the current run when it is missing or stale. */
 export function usePrepared(): { prepared: Prepared | null; status: PreviewStatus; retry: () => void } {
+  const { t } = useTranslation('catalogue');
   const { key, selection, form } = useSelectionKey();
   const source = useCatalogueFlow((s) => s.source);
   const prepared = useCatalogueFlow((s) => s.prepared);
@@ -61,10 +64,11 @@ export function usePrepared(): { prepared: Prepared | null; status: PreviewStatu
     let cancelled = false;
     const runId = useCatalogueFlow.getState().runId;
     const categoryId = source.kind === 'category' ? source.categoryId : null;
+    const theirTitle = source.kind === 'customer' ? t('source.theirsTitle') : '';
     prepareOnce(`${runId}|${key}|${attempt}`, async () => {
-      const data = buildCatalogueData(db, selection, dataOptions(form));
+      const data = buildFlowData(db, selection, dataOptions(form));
       const [photos, fontCss] = await Promise.all([loadPhotoMap(cataloguePhotoNames(data), photoAsDataUri, CATALOGUE_PHOTO), getPdfFontCss()]);
-      const fallbackTitle = categoryId ? (categoryName(db, categoryId) ?? '') : '';
+      const fallbackTitle = categoryId ? (categoryName(db, categoryId) ?? '') : theirTitle;
       return { key, data, photos, fontCss, fallbackTitle };
     }).then(
       (p) => {

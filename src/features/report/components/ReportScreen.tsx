@@ -94,6 +94,13 @@ export function ReportScreen({ initialFrom, initialTo }: { initialFrom?: number;
             onChange={p.setIncludePhones}
           />
           <ToggleRow
+            testID="report-profit"
+            label={t('options.profit')}
+            helper={t('options.profitHelp')}
+            value={p.includeProfit}
+            onChange={p.setIncludeProfit}
+          />
+          <ToggleRow
             testID="report-photos"
             label={t('options.photos')}
             helper={t('options.photosHelp')}

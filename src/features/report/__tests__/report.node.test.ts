@@ -120,3 +120,18 @@ describe('previewHtml', () => {
     expect(out).toContain('<div class="page">x</div>');
   });
 });
+
+describe('buying price & profit in owner reports (setting)', () => {
+  it('is off by default and read live from settings', () => {
+    const db = createTestDb();
+    expect(readReportBasics(db, T0).includeProfit).toBe(false);
+    updateSettings(db, { reportIncludesProfit: true });
+    expect(readReportBasics(db, T0).includeProfit).toBe(true);
+  });
+
+  it('a prepared PDF is not reused after the profit setting changes', () => {
+    const r = { from: 1, to: 2 };
+    expect(reportKey(r, true, 'x', false)).toBe(reportKey(r, true, 'x'));
+    expect(reportKey(r, true, 'x', true)).not.toBe(reportKey(r, true, 'x', false));
+  });
+});

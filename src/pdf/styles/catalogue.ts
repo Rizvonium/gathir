@@ -69,6 +69,7 @@ export const catalogueCss = `
 .c2 .rate{font-size:14pt;}
 .c3 .rate{font-size:11.5pt;}
 .s-ivory .rate{font-weight:600;color:var(--walnut);}
+.special{font-size:7.5pt;font-weight:600;color:var(--accent);margin-top:1mm;letter-spacing:0.02em;}
 
 /* Availability: always text + marker + colour, never colour alone. */
 .tag{display:inline-flex;align-items:center;gap:1.2mm;font-size:7pt;font-weight:600;white-space:nowrap;

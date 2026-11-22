@@ -30,6 +30,8 @@ export const shopSettings = sqliteTable('shop_settings', {
   catalogueOptionsJson: text('catalogue_options_json').notNull().default('{}'),
   reportIncludesCustomerPhones: integer('report_includes_customer_phones', { mode: 'boolean' }).notNull().default(true),
   showroomShowsExactCounts: integer('showroom_shows_exact_counts', { mode: 'boolean' }).notNull().default(false),
+  /** Owner report shows buying prices and profit only when the seller turns this on (PLAN §3). */
+  reportIncludesProfit: integer('report_includes_profit', { mode: 'boolean' }).notNull().default(false),
   pinHashSet: integer('pin_hash_set', { mode: 'boolean' }).notNull().default(false), // hash itself lives in expo-secure-store
   onboardedAt: integer('onboarded_at'),
   lastBackupAt: integer('last_backup_at'),
@@ -80,6 +82,8 @@ export const colours = sqliteTable(
     name: text('name').notNull(),
     hex: text('hex').notNull(), // '#RRGGBB' or 'multi'
     pieces: integer('pieces').notNull().default(0), // cached sum of stock_moves.delta
+    /** Buying price for this colour (e.g. a dearer batch); null = use products.cost_paise. Seller-only. */
+    costPaise: integer('cost_paise'),
     sortOrder: integer('sort_order').notNull().default(0),
     deletedAt: integer('deleted_at'),
     ...timestamps,
@@ -213,8 +217,34 @@ export const saleItems = sqliteTable(
     photoSnapshotName: text('photo_snapshot_name'), // copied thumb kept even if product deleted
     qty: integer('qty').notNull(),
     ratePaise: integer('rate_paise').notNull(),
+    /** Effective buying price per piece at the time of sale; null = unknown (profit unknown). */
+    costPaiseSnapshot: integer('cost_paise_snapshot'),
   },
-  (t) => [index('sale_items_sale_idx').on(t.saleId)],
+  (t) => [index('sale_items_sale_idx').on(t.saleId), index('sale_items_product_idx').on(t.productId)],
+);
+
+/**
+ * A customer's personal catalogue (PLAN §3 "Personal catalogue per customer"): a shortlist of
+ * designs with an optional special rate and note. Removal is soft (`removed_at`, Undo). At most one
+ * active row per (customer, product): enforced in src/db/repo/customerCatalogue.ts.
+ */
+export const customerCatalogueItems = sqliteTable(
+  'customer_catalogue_items',
+  {
+    id: text('id').primaryKey(),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => customers.id),
+    productId: text('product_id')
+      .notNull()
+      .references(() => products.id),
+    specialRatePaise: integer('special_rate_paise'),
+    note: text('note').notNull().default(''),
+    sortOrder: integer('sort_order').notNull().default(0),
+    addedAt: integer('added_at').notNull(),
+    removedAt: integer('removed_at'),
+  },
+  (t) => [index('cat_items_customer_idx').on(t.customerId), index('cat_items_product_idx').on(t.productId)],
 );
 
 export const REPORT_KINDS = ['owner', 'catalogue', 'bill', 'card'] as const;
@@ -245,5 +275,6 @@ export type CustomerEvent = typeof customerEvents.$inferSelect;
 export type Sale = typeof sales.$inferSelect;
 export type SaleItem = typeof saleItems.$inferSelect;
 export type Report = typeof reports.$inferSelect;
+export type CustomerCatalogueItem = typeof customerCatalogueItems.$inferSelect;
 
 export const _sql = sql; // re-export convenience for raw fragments

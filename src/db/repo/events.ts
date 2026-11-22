@@ -49,15 +49,49 @@ export function addNote(db: DbOrTx, customerId: string, note: string, now: numbe
   return insertEvent(db, customerId, 'note', { note: requireText(note, 'Note') }, now);
 }
 
-/** Logs that a catalogue (report record `reportId`) with these products was sent. */
+/** What one design was offered at in a sent catalogue (kept so "versions sent" can be listed). */
+export type CatalogueSentItem = { productId: string; name: string; ratePaise: number | null; specialPrice: boolean };
+
+/**
+ * Logs that a catalogue (report record `reportId`) with these products was sent. Pass `items`
+ * (see catalogueSentItems in ./customerCatalogue) to keep the rates offered; `personal` marks a
+ * customer's own catalogue. Stored as JSON in the event note.
+ */
 export function logCatalogueSent(
   db: DbOrTx,
   customerId: string,
   reportId: string | null,
   productIds: string[],
   now: number = Date.now(),
+  snapshot?: { items: CatalogueSentItem[]; personal?: boolean; title?: string },
 ): string {
-  return insertEvent(db, customerId, 'catalogue_sent', { refId: reportId, note: JSON.stringify({ productIds }) }, now);
+  const note = snapshot
+    ? { productIds, items: snapshot.items, personal: snapshot.personal ?? false, title: snapshot.title ?? '' }
+    : { productIds };
+  return insertEvent(db, customerId, 'catalogue_sent', { refId: reportId, note: JSON.stringify(note) }, now);
+}
+
+/** Rates snapshot on a catalogue_sent event ([] for older events or other kinds). */
+export function catalogueSentItems(event: CustomerEvent): CatalogueSentItem[] {
+  if (event.kind !== 'catalogue_sent') return [];
+  try {
+    const v = JSON.parse(event.note) as { items?: unknown };
+    if (!Array.isArray(v.items)) return [];
+    return v.items.flatMap((x): CatalogueSentItem[] => {
+      const o = x as Partial<CatalogueSentItem> | null;
+      if (!o || typeof o.productId !== 'string') return [];
+      return [
+        {
+          productId: o.productId,
+          name: typeof o.name === 'string' ? o.name : '',
+          ratePaise: typeof o.ratePaise === 'number' ? o.ratePaise : null,
+          specialPrice: o.specialPrice === true,
+        },
+      ];
+    });
+  } catch {
+    return [];
+  }
 }
 
 /** Logs that a single product card was sent. */

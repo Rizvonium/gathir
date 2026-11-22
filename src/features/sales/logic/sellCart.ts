@@ -3,6 +3,7 @@
  * line being picked (product → colour → quantity → rate). The one-item path never touches
  * the cart: the draft itself is sold when it is complete.
  */
+import { effectiveCost } from '@/db/repo/profitMath';
 import type { CreateSaleInput } from '@/db/repo/saleWrites';
 import type { PaymentMethod } from '@/db/schema';
 
@@ -12,7 +13,11 @@ export type ProductOption = {
   ratePaise: number;
   /** Cover thumbnail file name (not a URI), or null. */
   thumb: string | null;
-  colours: { id: string; name: string; hex: string; pieces: number }[];
+  /**
+   * `costPaise` = effective buying price per piece (colour's own, else the design's; null =
+   * unknown). Seller-only: used for the profit preview, never sent anywhere.
+   */
+  colours: { id: string; name: string; hex: string; pieces: number; costPaise?: number | null }[];
 };
 
 export type SellLine = {
@@ -25,6 +30,8 @@ export type SellLine = {
   thumb: string | null;
   qty: number;
   ratePaise: number;
+  /** Buying price per piece at the time it was picked (null/undefined = unknown). Seller-only. */
+  costPaise?: number | null;
 };
 
 export type Draft = { productId: string | null; colourId: string | null; qty: number; ratePaise: number | null };
@@ -126,6 +133,7 @@ export function draftLine(state: SellState, product: ProductOption | null): Sell
     thumb: product.thumb,
     qty: Math.min(state.draft.qty, draftMax(state, product)),
     ratePaise: state.draft.ratePaise ?? 0,
+    costPaise: colour.costPaise ?? null,
   };
 }
 
@@ -229,7 +237,11 @@ export function recentProductIds(sales: readonly { cancelledAt: number | null; i
 
 /** Picker option from a product detail (null when the product was deleted). */
 export function productOptionFromDetail(
-  detail: { product: { id: string; name: string; ratePaise: number; deletedAt: number | null }; colours: { id: string; name: string; hex: string; pieces: number }[]; photos: { thumbName: string }[] } | null,
+  detail: {
+    product: { id: string; name: string; ratePaise: number; deletedAt: number | null; costPaise?: number | null };
+    colours: { id: string; name: string; hex: string; pieces: number; costPaise?: number | null }[];
+    photos: { thumbName: string }[];
+  } | null,
 ): ProductOption | null {
   if (!detail || detail.product.deletedAt !== null) return null;
   return {
@@ -237,7 +249,7 @@ export function productOptionFromDetail(
     name: detail.product.name,
     ratePaise: detail.product.ratePaise,
     thumb: detail.photos[0]?.thumbName ?? null,
-    colours: detail.colours.map((c) => ({ id: c.id, name: c.name, hex: c.hex, pieces: c.pieces })),
+    colours: detail.colours.map((c) => ({ id: c.id, name: c.name, hex: c.hex, pieces: c.pieces, costPaise: effectiveCost(c.costPaise, detail.product.costPaise) })),
   };
 }
 

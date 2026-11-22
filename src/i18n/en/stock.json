@@ -87,14 +87,15 @@
   },
   "detail": {
     "back": "Back",
+    "addToCustomerCatalogue": "Add to a customer’s catalogue",
     "edit": "Edit product",
     "delete": "Delete product",
     "code": "Code {{code}}",
     "rate": "Rate",
-    "cost": "Cost price",
+    "cost": "Buying price",
     "costHidden": "Hidden",
-    "showCost": "Show cost price",
-    "hideCost": "Hide cost price",
+    "showCost": "Show buying price and profit",
+    "hideCost": "Hide buying price and profit",
     "costOnlyYou": "Only you see this. Never shown to customers.",
     "notes": "Notes",
     "totalPieces": "Total pieces",
@@ -119,7 +120,21 @@
     "addPhotos": "Add photos",
     "photoOf": "Photo {{index}} of {{total}} of {{name}}",
     "zoomHint": "Pinch or double-tap to see the weave",
-    "noColours": "No colours yet. Edit the product to add one."
+    "noColours": "No colours yet. Edit the product to add one.",
+    "costSection": "Buying price & profit",
+    "costNone": "Not added yet",
+    "costNoneHelp": "Add what you paid to see your profit on this design. New sales will count it; past sales keep the price they had.",
+    "addCost": "Add buying price",
+    "colourCost": "{{name}}: {{cost}}",
+    "marginAtRate": "Profit at this rate",
+    "marginLine": "{{profit}} a piece · {{pct}}",
+    "marginLoss": "Below buying price: {{amount}} loss a piece",
+    "earned": "Profit earned on this design",
+    "earnedNone": "Not sold yet.",
+    "earnedSub_one": "From {{count}} piece sold · {{amount}} in sales",
+    "earnedSub_other": "From {{count}} pieces sold · {{amount}} in sales",
+    "earnedUnknown": "Profit unknown: it was sold before a buying price was added.",
+    "hiddenA11y": "Buying price and profit are hidden"
   },
   "reduce": {
     "title": "Why fewer pieces?",
@@ -209,12 +224,12 @@
       "size": "Size",
       "rate": "Rate",
       "rateHelper": "Price for customers",
-      "cost": "Cost price (optional)",
-      "costHelper": "Only you see this.",
-      "addCost": "Add cost price",
+      "cost": "Buying price (only you see this)",
+      "costHelper": "Never shown to customers. Used to work out your profit.",
       "notes": "Notes (optional)",
       "notesPlaceholder": "Weaver, story, care…",
-      "addNotes": "Add notes"
+      "addNotes": "Add notes",
+      "costAboveRate": "This is more than the rate: selling at this rate loses money."
     },
     "colours": {
       "pick": "Tap the colours you have",
@@ -228,7 +243,12 @@
       "total_other": "Total: {{count}} pieces",
       "oneOfAKind": "One of a kind",
       "oneOfAKindHelp": "A single unique piece. Selling it makes it sold out.",
-      "oneOfAKindPick": "Which colour is it?"
+      "oneOfAKindPick": "Which colour is it?",
+      "costOpen": "Different buying price for {{name}}?",
+      "costLabel": "Buying price for {{name}}",
+      "costSame": "Empty = the design’s price, {{cost}}.",
+      "costSameNone": "Only you see this.",
+      "costReset": "Use the design’s buying price for {{name}}"
     },
     "errors": {
       "nameRequired": "Give it a name, or tap a suggestion.",

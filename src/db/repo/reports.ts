@@ -9,7 +9,15 @@ import { RepoError } from './errors';
 import { nextReportNumber } from './settings';
 
 export { buildOwnerReportData } from './ownerReport';
-export type { OwnerReportData, OwnerReportSale, OwnerReportStockChange, OwnerReportStockRow, OwnerReportCustomer } from './ownerReport';
+export type {
+  OwnerReportData,
+  OwnerReportSale,
+  OwnerReportStockChange,
+  OwnerReportStockRow,
+  OwnerReportCustomer,
+  OwnerReportProfit,
+  OwnerReportSummary,
+} from './ownerReport';
 export { buildCatalogueData, fewThreshold } from './catalogueData';
 export type { CatalogueData, CatalogueProduct, CatalogueOptions, CatalogueSelection, Availability } from './catalogueData';
 export { computeFingerprint, canonicalJson } from './fingerprint';

@@ -32,6 +32,9 @@ export type ToastOptions = {
   /** e.g. "Undo". Shown as a button; tapping it runs onAction and closes the toast. */
   actionLabel?: string;
   onAction?: () => void;
+  /** A second action, e.g. "Send bill" beside "Undo". Shown before the main action; tapping it runs onSecondaryAction and closes the toast. */
+  secondaryActionLabel?: string;
+  onSecondaryAction?: () => void;
   /** Auto-hide delay. Default 8000 ms (long enough to reach Undo). */
   durationMs?: number;
   tone?: ToastTone;
@@ -75,7 +78,7 @@ export function ToastProvider({ children, bottomOffset = DEFAULT_BOTTOM_OFFSET }
       counter.current += 1;
       const id = `toast-${counter.current}`;
       setToast({ ...options, id });
-      AccessibilityInfo.announceForAccessibility(options.actionLabel ? `${options.message}. ${options.actionLabel}` : options.message);
+      AccessibilityInfo.announceForAccessibility(toastAnnouncement(options));
       return id;
     },
     hide: (id) => setToast((cur) => (cur && (id === undefined || cur.id === id) ? null : cur)),
@@ -93,6 +96,23 @@ export function ToastProvider({ children, bottomOffset = DEFAULT_BOTTOM_OFFSET }
       {toast ? <ToastCard key={toast.id} toast={toast} bottomOffset={bottomOffset} onClose={() => api.hide(toast.id)} /> : null}
     </ToastContext>
   );
+}
+
+/** What TalkBack reads when a toast appears: the message, then its action labels. */
+export function toastAnnouncement(options: ToastOptions): string {
+  return [options.message, ...toastActions(options).map((a) => a.label)].join('. ');
+}
+
+type ToastAction = { key: 'secondary' | 'primary'; label: string; run: () => void };
+
+/** The toast's buttons in display order (secondary first, main action last, nearest the thumb). */
+export function toastActions(options: ToastOptions): ToastAction[] {
+  const out: ToastAction[] = [];
+  if (options.secondaryActionLabel && options.onSecondaryAction) {
+    out.push({ key: 'secondary', label: options.secondaryActionLabel, run: options.onSecondaryAction });
+  }
+  if (options.actionLabel && options.onAction) out.push({ key: 'primary', label: options.actionLabel, run: options.onAction });
+  return out;
 }
 
 /** Access the toast API. Must be used under ToastProvider. */
@@ -142,10 +162,7 @@ function ToastCard({ toast, bottomOffset, onClose }: { toast: ActiveToast; botto
   const fg = colors.bg;
   const icon = toneIcon[toast.tone ?? 'neutral'];
 
-  const runAction = () => {
-    toast.onAction?.();
-    onClose();
-  };
+  const actions = toastActions(toast);
 
   return (
     <View pointerEvents="box-none" style={[styles.layer, { bottom: insets.bottom + bottomOffset, paddingHorizontal: space.lg }]}>
@@ -171,17 +188,23 @@ function ToastCard({ toast, bottomOffset, onClose }: { toast: ActiveToast; botto
           <AppText variant="small" weight="medium" color={fg} style={styles.message}>
             {toast.message}
           </AppText>
-          {toast.actionLabel && toast.onAction ? (
+          {actions.map((a) => (
             <PressableScale
-              onPress={runAction}
+              key={a.key}
+              testID={`toast-action-${a.key}`}
+              onPress={() => {
+                a.run();
+                onClose();
+              }}
               haptic="light"
-              accessibilityLabel={toast.actionLabel}
-              style={[styles.action, { paddingHorizontal: space.md, borderRadius: radius.pill }]}>
-              <AppText variant="small" weight="bold" color={fg}>
-                {toast.actionLabel}
+              accessibilityRole="button"
+              accessibilityLabel={a.label}
+              style={[styles.action, { paddingHorizontal: actions.length > 1 ? space.sm : space.md, borderRadius: radius.pill }]}>
+              <AppText variant="small" weight={a.key === 'primary' ? 'bold' : 'semibold'} color={fg}>
+                {a.label}
               </AppText>
             </PressableScale>
-          ) : null}
+          ))}
           <IconButton icon="close" accessibilityLabel={t('toast.dismiss')} onPress={onClose} size={40} color={fg} style={styles.close} />
         </Animated.View>
       </GestureDetector>

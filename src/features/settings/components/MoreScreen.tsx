@@ -82,6 +82,13 @@ export function MoreScreen() {
             value={s.includePhones}
             onChange={m.setIncludePhones}
           />
+          <ToggleRow
+            testID="more-report-profit"
+            label={t('more.reportProfit')}
+            helper={t('more.reportProfitHelp')}
+            value={s.includeProfit}
+            onChange={m.setIncludeProfit}
+          />
         </View>
       </SettingsGroup>
 

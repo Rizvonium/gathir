@@ -12,6 +12,8 @@ export type MoreSummary = {
   sellerName: string;
   ownerWhatsapp: string;
   includePhones: boolean;
+  /** Owner reports carry buying prices and profit (default off). */
+  includeProfit: boolean;
   lowStockLevel: number;
   categoryCount: number;
   catalogueStyle: ShopSettings['catalogueStyle'];
@@ -40,6 +42,7 @@ export function readMoreSummary(db: DbOrTx): MoreSummary {
     sellerName: s?.sellerName ?? '',
     ownerWhatsapp: s?.ownerWhatsapp ?? '',
     includePhones: s?.reportIncludesCustomerPhones ?? true,
+    includeProfit: s?.reportIncludesProfit ?? false,
     lowStockLevel: s?.lowStockLevel ?? 1,
     categoryCount: cats,
     catalogueStyle: s?.catalogueStyle ?? 'bazaar',

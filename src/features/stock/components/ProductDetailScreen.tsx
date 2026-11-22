@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
+import { AddToCustomerCatalogueSheet } from '@/features/customers/components/AddToCustomerCatalogueSheet';
 import { formatINR } from '@/lib/money';
 import { AppText, Button, Divider, EmptyState, IconButton, PieceBadge, RollingNumber, SectionHeader, warmShadow } from '@/ui/components';
 import { PatternPlaceholder } from '@/ui/patterns';
@@ -10,6 +11,7 @@ import { useTheme } from '@/ui/theme';
 
 import { useProductDetailScreen } from '../hooks/useProductDetailScreen';
 import { ColourStockRow } from './ColourStockRow';
+import { CostProfitSection } from './CostProfitSection';
 import { HistoryList } from './HistoryList';
 import { PhotoGallery } from './PhotoGallery';
 import { ReduceSheet } from './ReduceSheet';
@@ -105,30 +107,17 @@ export function ProductDetailScreen({ productId }: { productId: string | undefin
           </View>
         </View>
 
-        {product.costPaise !== null ? (
-          <View style={[styles.row, styles.between, { paddingHorizontal: space.lg, paddingTop: space.md, gap: space.md }]}>
-            <View style={styles.flex}>
-              <AppText variant="small" muted>
-                {t('detail.cost')}
-              </AppText>
-              <AppText weight="semibold" numeric>
-                {s.costVisible ? formatINR(product.costPaise) : t('detail.costHidden')}
-              </AppText>
-              {s.costVisible ? (
-                <AppText variant="caption" muted>
-                  {t('detail.costOnlyYou')}
-                </AppText>
-              ) : null}
-            </View>
-            <IconButton
-              icon={s.costVisible ? 'visibility-off' : 'visibility'}
-              variant="tonal"
-              accessibilityLabel={s.costVisible ? t('detail.hideCost') : t('detail.showCost')}
-              onPress={s.toggleCost}
-              testID="detail-cost-toggle"
-            />
-          </View>
-        ) : null}
+        <View style={{ paddingHorizontal: space.lg, paddingTop: space.md }}>
+          <Button
+            label={t('detail.addToCustomerCatalogue')}
+            icon="playlist-add"
+            variant="secondary"
+            onPress={s.openCustomerSheet}
+            testID="detail-add-to-customer-catalogue"
+          />
+        </View>
+
+        <CostProfitSection detail={s.detail} profit={s.profit} visible={s.costVisible} onToggle={s.toggleCost} onAddCost={s.edit} />
 
         <View style={{ paddingHorizontal: space.lg, paddingTop: space.xl }}>
           <SectionHeader title={product.oneOfAKind ? t('detail.oneOfAKind') : t('detail.colours')} />
@@ -145,7 +134,6 @@ export function ProductDetailScreen({ productId }: { productId: string | undefin
                 colour={c}
                 oneOfAKind={product.oneOfAKind}
                 lowThreshold={s.lowThreshold}
-                resetKey={s.resetKey}
                 onRestock={s.restock}
                 onRequestReduce={s.requestReduce}
                 onSell={s.sell}
@@ -178,6 +166,7 @@ export function ProductDetailScreen({ productId }: { productId: string | undefin
 
       {topBar}
       <ReduceSheet target={s.reduceTarget} onQty={s.setReduceQty} onPick={s.pickReason} onClose={s.closeReduce} />
+      <AddToCustomerCatalogueSheet productId={product.id} visible={s.customerSheetOpen} onClose={s.closeCustomerSheet} />
     </View>
   );
 }
@@ -185,7 +174,6 @@ export function ProductDetailScreen({ productId }: { productId: string | undefin
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   row: { flexDirection: 'row', alignItems: 'center' },
-  between: { justifyContent: 'space-between' },
   topBar: { position: 'absolute', start: 0, end: 0, flexDirection: 'row', justifyContent: 'space-between' },
   stat: { flex: 1, borderWidth: 1, alignSelf: 'stretch' },
   addPhotos: { position: 'absolute' },

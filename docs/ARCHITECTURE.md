@@ -47,16 +47,17 @@ Typed routes are on: `npm run typecheck` first writes `.expo/types/router.d.ts` 
 |---|---|
 | `/(tabs)` `index` Home · `/stock` · `/sales` · `/customers` · `/more` | Tabs layout redirects to `/welcome` until onboarding is finished |
 | `/welcome` → `/language` → `/shop` → `/owner` → `/app-lock` → `/start` | group `(onboarding)`. The lock step is `/app-lock` (an `(onboarding)/lock.tsx` would collide with `/lock`). No other feature may create these top-level paths |
-| `/product/new`, `/product/[id]`, `/product/[id]/edit`, `/deleted` | `/deleted` lists products and customers |
+| `/product/new`, `/product/[id]`, `/product/[id]/edit`, `/deleted` | `/deleted` lists products and customers. Product detail mounts `AddToCustomerCatalogueSheet` (from `@/features/customers`, seller-only: it lists the customer book) |
 | `/sell?productId=&colourId=&customerId=` | formSheet, declared in the root `_layout.tsx` Stack |
 | `/sale/[id]` | |
-| `/customer/new?name=&phone=&returnTo=`, `/customer/[id]`, `/customer/[id]/edit` | `returnTo` returns via `router.dismissTo` with `customerId` |
-| `/catalogue?productIds=&categoryId=&customerId=&quick=1` → `/catalogue/options` → `/catalogue/preview` → `/catalogue/send`; `/catalogue/card?productId=&customerId=` | `quick=1` jumps to preview (Showroom) |
+| `/profit` | Seller-only profit view; opened from Home ("Today's profit") and the Sales tab profit card. Never linked from Showroom or any customer-facing surface |
+| `/customer/new?name=&phone=&returnTo=`, `/customer/[id]`, `/customer/[id]/edit`, `/customer/[id]/add-pieces` | `returnTo` returns via `router.dismissTo` with `customerId` |
+| `/catalogue?productIds=&categoryId=&customerId=&mode=customer&quick=1` → `/catalogue/options` → `/catalogue/preview` → `/catalogue/send`; `/catalogue/card?productId=&customerId=` | `quick=1` jumps to preview (Showroom); `mode=customer` (with `customerId`) starts on that customer's personal catalogue (special rates, "Prepared for …"; the preview hides "Someone else") |
 | `/showroom`, `/showroom/leave` | Exit pushes `/lock?mode=verify&returnTo=/showroom/leave` on top (never replaces itself with `/lock`) |
 | `/report` → `/report/preview`; `/report/history` | `/report?from=&to=` re-makes an old report |
 | `/settings` (→ `/more`), `/settings/shop`, `/settings/owner`, `/settings/stock`, `/settings/catalogue`, `/settings/language`, `/settings/storage`, `/settings/sample-data`, `/settings/tags`, `/settings/lock` | |
 | `/backup`, `/backup/result` | weekly reminder notification taps open `/backup` |
-| `/lock?mode=` set / verify / change `&returnTo=` | `returnTo` must start with `/`; success does `router.replace(returnTo)`, else back. Close/back in verify mode only goes back, so never guard a screen by *replacing* it with `/lock` |
+| `/lock?mode=` set / verify / change `&returnTo=` | `returnTo` must start with `/`; success does `router.replace(returnTo)`, else back. Close/back in verify mode only goes back, so never guard a screen by *replacing* it with `/lock`. Verify for `returnTo=/showroom/leave` blocks Android back (only the close button leaves) |
 
 Root layout order: fonts + migrations → seed → `ToastProvider` → `AppLockGate` (applies only once a PIN is set **and** onboarding is finished) → Stack, plus notification-tap routing (follow-up → `/customer/[id]`, backup → `/backup`).
 

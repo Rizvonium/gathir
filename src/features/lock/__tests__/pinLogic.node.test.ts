@@ -14,6 +14,7 @@ import {
   pressKey,
   registerFailure,
   safeReturnTo,
+  lockBlocksBack,
   sameHash,
   secondsLeft,
   shouldLockOnResume,
@@ -83,5 +84,15 @@ describe('pinLogic', () => {
     expect(safeReturnTo('https://evil.example')).toBeNull();
     expect(safeReturnTo('//evil')).toBeNull();
     expect(safeReturnTo(undefined)).toBeNull();
+  });
+
+  it('blocks Android back on /lock only when verifying for a guarded return (Showroom exit)', () => {
+    expect(lockBlocksBack('verify', '/showroom/leave')).toBe(true);
+    expect(lockBlocksBack('verify', ['/showroom/leave'])).toBe(true);
+    expect(lockBlocksBack('verify', '/report')).toBe(false);
+    expect(lockBlocksBack('verify', undefined)).toBe(false);
+    expect(lockBlocksBack('set', '/showroom/leave')).toBe(false);
+    expect(lockBlocksBack('change', '/showroom/leave')).toBe(false);
+    expect(lockBlocksBack('verify', 'https://evil.example/showroom/leave')).toBe(false);
   });
 });

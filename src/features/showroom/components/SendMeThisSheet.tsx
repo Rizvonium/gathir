@@ -9,10 +9,11 @@ import { useTranslation } from 'react-i18next';
 
 import { db } from '@/db/client';
 import { useCustomers } from '@/db/hooks';
+import { addToCustomerCatalogue, removeFromCustomerCatalogue } from '@/db/repo/customerCatalogue';
 import type { ProductListRow } from '@/db/repo/productQueries';
 import { quickAddCustomer, recordLikedItems } from '@/features/catalogue/logic/record';
 import { formatPhone } from '@/lib/phone';
-import { AppSheet, AppText, Button, ListRow, PhoneInput, TextField, useToast } from '@/ui/components';
+import { AppSheet, AppText, Button, ListRow, PhoneInput, playHaptic, TextField, useToast } from '@/ui/components';
 import { useTheme } from '@/ui/theme';
 
 import { addLiked } from '../logic/showroom';
@@ -44,6 +45,8 @@ export function SendMeThisSheet({ product, visible, onClose, liked, onLiked, onS
   const [name, setName] = useState('');
   const [phone, setPhone] = useState<string | null>(null);
   const [chosen, setChosen] = useState<Chosen | null>(null);
+  /** Catalogue item id once this shawl is saved to the chosen customer's catalogue. */
+  const [savedItem, setSavedItem] = useState<string | null>(null);
   const q = query.trim();
   const matches = useCustomers({ search: q || undefined, sort: 'recent' }).slice(0, MAX_MATCHES);
 
@@ -53,6 +56,7 @@ export function SendMeThisSheet({ product, visible, onClose, liked, onLiked, onS
     setName('');
     setPhone(null);
     setChosen(null);
+    setSavedItem(null);
   };
   const close = () => {
     reset();
@@ -69,6 +73,33 @@ export function SendMeThisSheet({ product, visible, onClose, liked, onLiked, onS
     const ids = addLiked(liked[id] ?? [], product.id);
     onLiked(id, ids);
     setChosen({ id, name: customerName, likedIds: ids });
+  };
+
+  /** "Save to <name>'s catalogue": the seller's shortlist for this customer (Undo from the toast). */
+  const saveToCatalogue = () => {
+    if (!chosen || !product) return;
+    let itemId: string;
+    try {
+      itemId = addToCustomerCatalogue(db, { customerId: chosen.id, productId: product.id });
+    } catch {
+      toast.show({ message: t('sheet.saveFailed'), tone: 'danger' });
+      return;
+    }
+    playHaptic('success');
+    setSavedItem(itemId);
+    toast.show({
+      message: t('sheet.savedToCatalogue', { name: chosen.name }),
+      tone: 'success',
+      actionLabel: t('common:actions.undo'),
+      onAction: () => {
+        try {
+          removeFromCustomerCatalogue(db, itemId);
+        } catch {
+          // Already removed.
+        }
+        setSavedItem(null);
+      },
+    });
   };
 
   const addAndChoose = () => {
@@ -110,6 +141,16 @@ export function SendMeThisSheet({ product, visible, onClose, liked, onLiked, onS
               close();
               onSendMini(c);
             }}
+          />
+          <Button
+            testID="sheet-save-catalogue"
+            label={savedItem ? t('sheet.inCatalogue', { name: chosen.name }) : t('sheet.saveToCatalogue', { name: chosen.name })}
+            icon={savedItem ? 'check' : 'bookmark-add'}
+            variant="ghost"
+            size="lg"
+            fullWidth
+            disabled={!!savedItem}
+            onPress={saveToCatalogue}
           />
         </View>
       ) : adding ? (

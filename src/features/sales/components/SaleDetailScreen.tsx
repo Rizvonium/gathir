@@ -17,6 +17,10 @@ import { formatPhone } from '@/lib/phone';
 import { AppSheet, AppText, Avatar, Button, ColourSwatch, Divider, EmptyState, Icon, IconButton, ListRow, PressableScale, Screen } from '@/ui/components';
 import { useTheme } from '@/ui/theme';
 
+import { ProfitEyeToggle, UnknownCostNote } from '@/features/profit/components/ProfitBits';
+import { formatMargin, formatProfit, profitState, profitTone } from '@/features/profit/logic';
+import { HIDDEN_FIGURE, useProfitVisible } from '@/features/profit/privacy';
+
 import { useSaleDetail, type SaleDetailActions } from '../hooks/useSaleDetail';
 import { PaymentLabel, ProductThumb } from './SaleBits';
 
@@ -31,6 +35,8 @@ export function SaleDetailScreen({ id }: { id: string | undefined }) {
 export function SaleDetailView({ detail, actions }: { detail: SaleDetail | null; actions: SaleDetailActions }) {
   const { colors, space, radius } = useTheme();
   const { t } = useTranslation('sales');
+  const { t: tp } = useTranslation('profit');
+  const profitVisible = useProfitVisible();
   const back = () => (router.canGoBack() ? router.back() : router.replace('/sales'));
   const backButton = <IconButton icon="arrow-back" accessibilityLabel={t('detail.back')} onPress={back} testID="sale-back" />;
 
@@ -42,7 +48,8 @@ export function SaleDetailView({ detail, actions }: { detail: SaleDetail | null;
     );
   }
 
-  const { sale, items, customer } = detail;
+  const { sale, items, customer, profit } = detail;
+  const pState = profitState(profit);
   const returned = sale.cancelledAt !== null;
   const subtotal = items.reduce((s, i) => s + i.qty * i.ratePaise, 0);
   const pieces = items.reduce((n, i) => n + i.qty, 0);
@@ -76,6 +83,7 @@ export function SaleDetailView({ detail, actions }: { detail: SaleDetail | null;
       edges={['top', 'bottom']}
       scroll
       footer={footer}
+      actions={<ProfitEyeToggle />}
       testID="sale-detail">
       {returned ? (
         <View
@@ -93,7 +101,7 @@ export function SaleDetailView({ detail, actions }: { detail: SaleDetail | null;
         <AppText variant="title" accessibilityRole="header">
           {t('detail.items')}
         </AppText>
-        {items.map((it) => (
+        {items.map((it, i) => (
           <PressableScale
             key={it.id}
             testID={`sale-item-${it.id}`}
@@ -116,6 +124,7 @@ export function SaleDetailView({ detail, actions }: { detail: SaleDetail | null;
               <AppText variant="small" muted numeric>
                 {t('detail.qtyRate', { qty: it.qty, rate: formatINR(it.ratePaise) })}
               </AppText>
+              {profitVisible && !returned ? <ItemProfit costPaise={it.costPaiseSnapshot} profitPaise={profit.lines[i]?.profitPaise ?? null} testID={`sale-item-profit-${it.id}`} /> : null}
             </View>
             <AppText weight="semibold" numeric>
               {formatINR(it.qty * it.ratePaise)}
@@ -137,6 +146,25 @@ export function SaleDetailView({ detail, actions }: { detail: SaleDetail | null;
           <AppText muted>{t('detail.payment')}</AppText>
           <PaymentLabel payment={sale.payment} muted={false} />
         </View>
+        {returned ? (
+          <AppText variant="small" muted testID="sale-profit-returned">
+            {tp('sale.returned')}
+          </AppText>
+        ) : !profitVisible ? (
+          <Line label={tp('sale.profit')} value={HIDDEN_FIGURE} a11yValue={tp('hidden')} testID="sale-profit" />
+        ) : pState === 'unknown' ? (
+          <Line label={tp('sale.profit')} value={tp('unknown')} tone="lowText" testID="sale-profit" />
+        ) : (
+          <>
+            <Line
+              label={tp('sale.profit')}
+              value={`${formatProfit(profit.profitPaise)}${formatMargin(profit.marginPct) ? ` (${formatMargin(profit.marginPct)})` : ''}`}
+              tone={profitTone(profit.profitPaise)}
+              testID="sale-profit"
+            />
+            <UnknownCostNote count={profit.unknownCostItems} testID="sale-profit-unknown" />
+          </>
+        )}
       </View>
 
       <View style={{ gap: space.xs }}>
@@ -177,13 +205,47 @@ export function SaleDetailView({ detail, actions }: { detail: SaleDetail | null;
   );
 }
 
-function Line({ label, value, strong, struck }: { label: string; value: string; strong?: boolean; struck?: boolean }) {
+/** "Bought at ₹4,000 · profit ₹2,500" under a sold item (seller-only), or "profit unknown". */
+function ItemProfit({ costPaise, profitPaise, testID }: { costPaise: number | null; profitPaise: number | null; testID: string }) {
+  const { t } = useTranslation('profit');
+  if (costPaise === null || profitPaise === null) {
+    return (
+      <AppText variant="small" tone="lowText" testID={testID}>
+        {t('sale.itemUnknown')}
+      </AppText>
+    );
+  }
+  const tone = profitTone(profitPaise);
   return (
-    <View style={[styles.row, styles.between]} accessible accessibilityLabel={`${label}: ${value}`}>
+    <AppText variant="small" numeric tone={tone === 'text' ? 'textMuted' : tone} testID={testID}>
+      {t('sale.itemProfit', { cost: formatINR(costPaise), profit: formatProfit(profitPaise) })}
+    </AppText>
+  );
+}
+
+function Line({
+  label,
+  value,
+  strong,
+  struck,
+  tone,
+  a11yValue,
+  testID,
+}: {
+  label: string;
+  value: string;
+  strong?: boolean;
+  struck?: boolean;
+  tone?: 'meadow' | 'danger' | 'text' | 'lowText';
+  a11yValue?: string;
+  testID?: string;
+}) {
+  return (
+    <View style={[styles.row, styles.between]} accessible accessibilityLabel={`${label}: ${a11yValue ?? value}`} testID={testID}>
       <AppText muted={!strong} weight={strong ? 'bold' : 'regular'} variant={strong ? 'title' : 'body'}>
         {label}
       </AppText>
-      <AppText numeric weight={strong ? 'bold' : 'medium'} variant={strong ? 'title' : 'body'} style={struck ? styles.struck : undefined}>
+      <AppText numeric tone={tone} weight={strong ? 'bold' : 'medium'} variant={strong ? 'title' : 'body'} style={struck ? styles.struck : undefined}>
         {value}
       </AppText>
     </View>

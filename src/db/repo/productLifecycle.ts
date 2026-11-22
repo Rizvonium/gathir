@@ -1,7 +1,7 @@
 /** Product soft delete, restore, purge after 30 days, and the Recently deleted list. */
 import { and, desc, eq, inArray, isNotNull, isNull, lt } from 'drizzle-orm';
 
-import { colours, photos, products, stockMoves } from '../schema';
+import { colours, customerCatalogueItems, photos, products, stockMoves } from '../schema';
 import { applyMove } from '../stock';
 import type { DbOrTx } from '../types';
 import { chunk, DAY_MS, RECENTLY_DELETED_DAYS } from './constants';
@@ -75,6 +75,7 @@ export function purgeDeletedOlderThan(
       const ph = tx.select().from(photos).where(inArray(photos.productId, ids)).all();
       files.push(...ph.flatMap((p) => [p.fileName, p.thumbName]));
       tx.delete(stockMoves).where(inArray(stockMoves.productId, ids)).run();
+      tx.delete(customerCatalogueItems).where(inArray(customerCatalogueItems.productId, ids)).run();
       tx.delete(colours).where(inArray(colours.productId, ids)).run();
       tx.delete(photos).where(inArray(photos.productId, ids)).run();
       tx.delete(products).where(inArray(products.id, ids)).run();

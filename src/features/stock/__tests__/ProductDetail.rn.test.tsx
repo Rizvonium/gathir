@@ -1,6 +1,7 @@
 import { fireEvent, screen } from '@testing-library/react-native';
 
 import type { ProductDetail, StockHistoryRow } from '@/db/repo/productQueries';
+import type { ProductProfit } from '@/db/repo/profit';
 
 import { ProductDetailScreen } from '../components/ProductDetailScreen';
 import { renderScreen, router } from './stockMocks';
@@ -25,10 +26,19 @@ jest.mock('@/db/stock', () => {
   return { StockError, recordRestock: jest.fn(), recordReduction: jest.fn(), adjustStock: jest.fn() };
 });
 
-const mockState: { detail: ProductDetail | null; history: StockHistoryRow[] } = { detail: null, history: [] };
+jest.mock('@/features/customers/components/AddToCustomerCatalogueSheet', () => {
+  const { Text } = require('react-native');
+  return {
+    AddToCustomerCatalogueSheet: ({ productId, visible }: { productId: string; visible: boolean }) =>
+      visible ? <Text testID="customer-catalogue-sheet">{productId}</Text> : null,
+  };
+});
+
+const mockState: { detail: ProductDetail | null; history: StockHistoryRow[]; profit: ProductProfit | null } = { detail: null, history: [], profit: null };
 jest.mock('@/db/hooks', () => ({
   useProductDetail: () => mockState.detail,
   useStockHistory: () => mockState.history,
+  useProductProfit: (id: string | undefined) => (id ? mockState.profit : null),
   useLowStockLevel: () => 1,
   useToday: () => new Date(2026, 10, 22).getTime(),
 }));
@@ -65,6 +75,7 @@ function detail(opts: { oneOfAKind?: boolean; pieces?: number[]; cost?: number |
       name: i === 0 ? 'Red' : 'Beige',
       hex: '#C0262D',
       pieces: p,
+      costPaise: null,
       sortOrder: i,
       createdAt: now,
       updatedAt: now,
@@ -80,6 +91,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockState.detail = detail();
   mockState.history = [];
+  mockState.profit = null;
 });
 
 const render = () => renderScreen(<ProductDetailScreen productId="p1" />);
@@ -91,8 +103,48 @@ describe('ProductDetailScreen', () => {
     expect(screen.getByText('Sozni · Pashmina · Stole (70×200)')).toBeOnTheScreen();
     expect(screen.getByText('Hidden')).toBeOnTheScreen();
     expect(screen.queryByText('₹4,000')).toBeNull();
-    await fireEvent.press(screen.getByLabelText('Show cost price'));
+    await fireEvent.press(screen.getByLabelText('Show buying price and profit'));
     expect(screen.getByText('₹4,000')).toBeOnTheScreen();
+  });
+
+  it('behind the eye: buying price, profit at this rate and profit earned on the design', async () => {
+    mockState.profit = {
+      revenuePaise: 1_950_000,
+      knownRevenuePaise: 1_300_000,
+      knownCostPaise: 800_000,
+      profitPaise: 500_000,
+      marginPct: 38.5,
+      unknownCostItems: 1,
+      pieces: 3,
+      salesCount: 3,
+    };
+    await render();
+    expect(screen.queryByTestId('detail-earned')).toBeNull();
+    await fireEvent.press(screen.getByLabelText('Show buying price and profit'));
+    expect(screen.getByTestId('detail-margin')).toHaveTextContent('Profit at this rate: ₹2,500 a piece · 38.5%');
+    expect(screen.getByLabelText('₹5,000')).toBeOnTheScreen();
+    expect(screen.getByText('38.5% margin')).toBeOnTheScreen();
+    expect(screen.getByText('From 3 pieces sold · ₹19,500 in sales')).toBeOnTheScreen();
+    expect(screen.getByText('1 item had no buying price, so its profit is not counted.')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Hide buying price and profit'));
+    expect(screen.queryByText('₹4,000')).toBeNull();
+  });
+
+  it('without a buying price it nudges to add one (never shows a made-up profit)', async () => {
+    mockState.detail = detail({ cost: null });
+    await render();
+    await fireEvent.press(screen.getByLabelText('Show buying price and profit'));
+    expect(screen.getByText('Not added yet')).toBeOnTheScreen();
+    expect(screen.queryByTestId('detail-margin')).toBeNull();
+    await fireEvent.press(screen.getByTestId('detail-add-cost'));
+    expect(router.push).toHaveBeenCalledWith({ pathname: '/product/[id]/edit', params: { id: 'p1' } });
+  });
+
+  it('"Add to a customer\u2019s catalogue" opens the customer picker for this design', async () => {
+    await render();
+    expect(screen.queryByTestId('customer-catalogue-sheet')).toBeNull();
+    await fireEvent.press(screen.getByTestId('detail-add-to-customer-catalogue'));
+    expect(screen.getByTestId('customer-catalogue-sheet')).toHaveTextContent('p1');
   });
 
   it('"+" restocks one piece straight away', async () => {

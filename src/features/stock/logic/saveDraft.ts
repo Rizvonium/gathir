@@ -34,14 +34,16 @@ function fieldsOf(d: ProductDraft, name: string) {
 }
 
 function saveColour(tx: DbOrTx, productId: string, c: DraftColour, now: number): void {
+  const cost = c.costPaise ?? null;
   if (!c.id || !c.original) {
-    addColour(tx, productId, { name: c.name, hex: c.hex, pieces: c.pieces }, now);
+    addColour(tx, productId, { name: c.name, hex: c.hex, pieces: c.pieces, costPaise: cost }, now);
     return;
   }
-  const patch: { name?: string; hex?: string } = {};
+  const patch: { name?: string; hex?: string; costPaise?: number | null } = {};
   if (c.name.trim() !== c.original.name) patch.name = c.name;
   if (c.hex !== c.original.hex) patch.hex = c.hex;
-  if (patch.name !== undefined || patch.hex !== undefined) renameColour(tx, c.id, patch, now);
+  if (cost !== (c.original.costPaise ?? null)) patch.costPaise = cost;
+  if (patch.name !== undefined || patch.hex !== undefined || patch.costPaise !== undefined) renameColour(tx, c.id, patch, now);
   // Counts change only through stock moves: more = restock, fewer = "counted wrong".
   const delta = c.pieces - c.original.pieces;
   if (delta > 0) recordRestock(tx, c.id, delta, '', now);
@@ -60,7 +62,7 @@ export function saveDraft(db: DbOrTx, draft: ProductDraft, name: string, now: nu
         tx,
         {
           fields: fieldsOf(draft, name),
-          colours: draft.colours.map((c) => ({ name: c.name, hex: c.hex, pieces: c.pieces })),
+          colours: draft.colours.map((c) => ({ name: c.name, hex: c.hex, pieces: c.pieces, costPaise: c.costPaise ?? null })),
           photos: draft.photos,
         },
         now,

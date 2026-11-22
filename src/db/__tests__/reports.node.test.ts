@@ -41,7 +41,12 @@ describe('owner report data', () => {
     const range = { from: T0, to: T0 + DAY };
     const data = buildOwnerReportData(db, { ...range, includeCustomerPhones: false, now: T0 + DAY });
     const summary = salesSummary(db, range);
-    expect(data.summary).toEqual(summary);
+    // Profit is seller-only: the report summary leaves it out unless the setting is on.
+    const { profitPaise, knownCostPaise, knownRevenuePaise, marginPct, unknownCostItems, ...withoutProfit } = summary;
+    void [profitPaise, knownCostPaise, knownRevenuePaise, marginPct, unknownCostItems];
+    expect(data.summary).toEqual(withoutProfit);
+    expect(data.includeProfit).toBe(false);
+    expect(data.profit).toBeNull();
     expect(data.sales.reduce((s, x) => s + x.totalPaise, 0)).toBe(summary.amountPaise);
     expect(data.sales.flatMap((s) => s.items).reduce((n, i) => n + i.qty, 0)).toBe(summary.pieces);
     expect(data.sales[0].items[0].photoName).toBe('Sozni stole-0-t.jpg');

@@ -12,10 +12,11 @@ import { useContactActions } from '../hooks/useContactActions';
 import { useCustomerProfileScreen } from '../hooks/useCustomerProfileScreen';
 import { useNow } from '../hooks/useNow';
 import { avatarTint, likesEmpty, relativePast } from '../logic/customerLogic';
-import { catalogueHref, editCustomerHref, productHref, saleHref, sellToHref } from '../logic/links';
+import { addPiecesHref, catalogueHref, editCustomerHref, productHref, saleHref, sellToHref, theirCatalogueHref } from '../logic/links';
 import { FollowUpList, FollowUpSheet } from './FollowUps';
 import { LikesSection } from './LikesSection';
 import { SuggestedStrip } from './SuggestedStrip';
+import { TheirCatalogue } from './TheirCatalogue';
 import { NoteSheet, Timeline } from './Timeline';
 
 const back = () => (router.canGoBack() ? router.back() : router.replace('/customers'));
@@ -133,11 +134,34 @@ export function CustomerProfileScreen({ id }: { id: string | undefined }) {
       <LikesSection likes={likes} suggestion={deleted ? null : p.suggestion} onSave={p.saveLikes} onAccept={p.acceptLearned} onDismiss={p.dismissLearned} />
 
       {!deleted ? (
+        <TheirCatalogue
+          customerName={customer.name}
+          rows={p.catalogueRows}
+          versions={p.catalogueVersions}
+          lowStockLevel={p.lowStockLevel}
+          onAdd={() => router.push(addPiecesHref(customer.id))}
+          onSend={() => router.push(theirCatalogueHref(customer.id))}
+          onRemove={(row) => p.catalogue.remove(row.id, row.name)}
+          onMove={(row, dir) =>
+            p.catalogue.move(
+              p.catalogueRows.map((r) => r.id),
+              row.id,
+              dir,
+            )
+          }
+          onSave={(row, patch) => p.catalogue.save(row.id, patch, { specialRatePaise: row.specialRatePaise, note: row.note })}
+          onOpenProduct={(pid) => router.push(productHref(pid))}
+        />
+      ) : null}
+
+      {!deleted ? (
         <SuggestedStrip
           items={p.suggestions}
           nothingToMatch={nothingToMatch}
           onOpen={(pid) => router.push(productHref(pid))}
           onSend={(ids) => router.push(catalogueHref(customer.id, ids))}
+          inCatalogue={p.inCatalogue}
+          onAddToCatalogue={p.addSuggestedToCatalogue}
         />
       ) : null}
 

@@ -123,6 +123,27 @@
       "report": "Sales report {{number}} - {{shop}} - {{date}}",
       "bill": "Bill {{no}} - {{shop}}",
       "card": "{{name}} - {{shop}}"
+    },
+    "profit": {
+      "title": "Buying price and profit",
+      "lead": "Profit counts only items with a buying price. Items without one are marked “profit unknown”.",
+      "profit": "Profit",
+      "margin": "Margin",
+      "marginValue": "{{pct}}%",
+      "knownCost": "Buying price of items sold",
+      "unknown_one": "{{n}} item without a buying price (profit unknown)",
+      "unknown_other": "{{n}} items without a buying price (profit unknown)",
+      "byCategory": "Profit by category",
+      "byProduct": "Most profitable designs",
+      "colRevenue": "Sold for",
+      "colProfit": "Profit",
+      "colMargin": "Margin",
+      "stockAtCost": "Stock value at buying price",
+      "stockCostUnknown_one": "{{n}} piece in stock has no buying price",
+      "stockCostUnknown_other": "{{n}} pieces in stock have no buying price",
+      "saleProfit": "Profit {{amount}}",
+      "saleProfitUnknown": "Profit unknown",
+      "itemCost": "Bought at {{amount}}"
     }
   },
   "share": {
@@ -136,7 +157,9 @@
       "designs_one": "{{n}} design",
       "designs_other": "{{n}} designs",
       "inStock": "In stock: {{pieces}} · {{designs}} · {{low}} low",
-      "attached": "PDF attached."
+      "attached": "PDF attached.",
+      "profit": "Profit: {{amount}} ({{margin}})",
+      "profitNoMargin": "Profit: {{amount}}"
     },
     "bill": {
       "title": "Bill {{no}} from {{shop}}",
@@ -179,7 +202,9 @@
     "phones": "Include customer phone numbers",
     "phonesHelp": "Only the owner sees this report.",
     "photos": "Also send full photos",
-    "photosHelp": "After the PDF, send big photos of the sold shawls."
+    "photosHelp": "After the PDF, send big photos of the sold shawls.",
+    "profit": "Include buying price & profit",
+    "profitHelp": "Off by default. Turn on only if the owner should see what you paid."
   },
   "preview": {
     "open": "See the PDF first",

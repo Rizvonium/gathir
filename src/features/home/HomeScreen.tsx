@@ -7,6 +7,9 @@ import { AppText, Button, EmptyState } from '@/ui/components';
 import { LoomEmptyState, PatternHeader } from '@/ui/patterns';
 import { useTheme } from '@/ui/theme';
 
+import { ProfitEyeToggle } from '@/features/profit/components/ProfitBits';
+import { useProfitVisible } from '@/features/profit/privacy';
+
 import { AttentionStrip, BackupCard, FollowUps, QuickActions, ReportCard, SampleBanner, StockCard, TodayCard } from './HomeCards';
 import { useHome, type HomeActions, type HomeModel } from './useHome';
 
@@ -32,6 +35,7 @@ export function HomeView({ model, actions }: { model: HomeModel; actions: HomeAc
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { summary } = model;
+  const profitVisible = useProfitVisible();
 
   return (
     <ScrollView testID="home" style={{ backgroundColor: colors.bg }} contentContainerStyle={{ paddingBottom: space.xxxl }}>
@@ -51,13 +55,16 @@ export function HomeView({ model, actions }: { model: HomeModel; actions: HomeAc
             gap: space.lg,
           },
         ]}>
-        <View>
-          <AppText muted weight="semibold">
-            {t(`greeting.${model.greeting}`)}
-          </AppText>
-          <AppText variant="display" accessibilityRole="header" numberOfLines={2} testID="home-shop-name">
-            {model.shopName || t('myShop')}
-          </AppText>
+        <View style={[styles.titleRow, { gap: space.sm }]}>
+          <View style={styles.flex}>
+            <AppText muted weight="semibold">
+              {t(`greeting.${model.greeting}`)}
+            </AppText>
+            <AppText variant="display" accessibilityRole="header" numberOfLines={2} testID="home-shop-name">
+              {model.shopName || t('myShop')}
+            </AppText>
+          </View>
+          {!model.emptyShop ? <ProfitEyeToggle testID="home-profit-eye" /> : null}
         </View>
 
         {model.hasSample ? <SampleBanner onClear={actions.clearSample} /> : null}
@@ -77,8 +84,21 @@ export function HomeView({ model, actions }: { model: HomeModel; actions: HomeAc
           </View>
         ) : (
           <>
-            <StockCard pieces={summary.totalPieces} designs={summary.designs} valuePaise={summary.stockValuePaise} />
-            <TodayCard pieces={summary.todayPieces} amountPaise={summary.todayAmountPaise} compare={model.today} />
+            <StockCard
+              pieces={summary.totalPieces}
+              designs={summary.designs}
+              valuePaise={summary.stockValuePaise}
+              costValuePaise={summary.stockValueAtCostPaise}
+              costUnknownPieces={summary.stockCostUnknownPieces}
+              profitVisible={profitVisible}
+            />
+            <TodayCard
+              pieces={summary.todayPieces}
+              amountPaise={summary.todayAmountPaise}
+              compare={model.today}
+              profit={{ profitPaise: summary.todayProfitPaise, marginPct: summary.todayMarginPct, unknownItems: summary.todayProfitUnknownItems }}
+              profitVisible={profitVisible}
+            />
             <QuickActions />
             <AttentionStrip items={model.attention} total={model.attentionTotal} lowStockLevel={model.lowStockLevel} />
             <ReportCard status={model.report} />
@@ -94,5 +114,7 @@ export function HomeView({ model, actions }: { model: HomeModel; actions: HomeAc
 
 const styles = StyleSheet.create({
   sheet: { flex: 1 },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  flex: { flex: 1, minWidth: 0 },
   empty: { flex: 0, paddingHorizontal: 0 },
 });

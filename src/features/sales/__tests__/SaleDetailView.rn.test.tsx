@@ -2,7 +2,9 @@ import 'react-native-gesture-handler/jestSetup';
 
 import { fireEvent, screen } from '@testing-library/react-native';
 
+import { computeSaleProfit } from '@/db/repo/profitMath';
 import type { SaleDetail } from '@/db/repo/saleQueries';
+import { useProfitPrivacy } from '@/features/profit/privacy';
 import { renderWithTheme } from '@/ui/components/__tests__/renderWithTheme';
 
 import { SaleDetailView } from '../components/SaleDetailScreen';
@@ -37,8 +39,9 @@ function detail(over: Partial<SaleDetail['sale']> = {}, customerDeleted = false)
       ...over,
     } as SaleDetail['sale'],
     items: [
-      { id: 'i1', saleId: 's1', productId: 'p1', colourId: 'c1', productNameSnapshot: 'Sozni stole', productCodeSnapshot: 'GTH-1', colourNameSnapshot: 'Red', colourHexSnapshot: '#C0262D', photoSnapshotName: null, qty: 2, ratePaise: 650_000 },
+      { id: 'i1', saleId: 's1', productId: 'p1', colourId: 'c1', productNameSnapshot: 'Sozni stole', productCodeSnapshot: 'GTH-1', colourNameSnapshot: 'Red', colourHexSnapshot: '#C0262D', photoSnapshotName: null, qty: 2, ratePaise: 650_000, costPaiseSnapshot: 400_000 },
     ],
+    profit: computeSaleProfit({ discountPaise: 50_000, items: [{ qty: 2, ratePaise: 650_000, costPaise: 400_000 }] }),
     customer: { id: 'c1', name: 'Anita Kaul', phone: '+919906000104', deletedAt: customerDeleted ? AT : null } as SaleDetail['customer'],
   };
 }
@@ -96,5 +99,34 @@ describe('SaleDetailView', () => {
       </AppThemeProvider>,
     );
     expect(screen.getByText('This sale could not be found.')).toBeTruthy();
+  });
+
+  it("shows the seller the sale profit and each item's buying price, and hides them on the eye", async () => {
+    useProfitPrivacy.getState().setHidden(false);
+    await renderWithTheme(<SaleDetailView detail={detail()} actions={actions()} />);
+    // (6,500 − 4,000) × 2 − 500 discount = 4,500 on 12,500 sales = 36 %.
+    expect(screen.getByLabelText('Profit: ₹4,500 (36%)')).toBeTruthy();
+    expect(screen.getByTestId('sale-item-profit-i1')).toHaveTextContent('Bought at ₹4,000 · profit ₹4,500');
+    await fireEvent.press(screen.getByLabelText('Hide profit figures'));
+    expect(screen.getByLabelText('Profit: Hidden')).toBeTruthy();
+    expect(screen.queryByTestId('sale-item-profit-i1')).toBeNull();
+    useProfitPrivacy.getState().setHidden(false);
+  });
+
+  it('an item without a buying price reads "profit unknown", and a returned sale counts no profit', async () => {
+    const d = detail();
+    const items = [{ ...d.items[0], costPaiseSnapshot: null }];
+    const unknown = { ...d, items, profit: computeSaleProfit({ discountPaise: 50_000, items: [{ qty: 2, ratePaise: 650_000, costPaise: null }] }) };
+    const { rerender } = await renderWithTheme(<SaleDetailView detail={unknown} actions={actions()} />);
+    expect(screen.getByLabelText('Profit: Profit unknown')).toBeTruthy();
+    expect(screen.getByTestId('sale-item-profit-i1')).toHaveTextContent('No buying price saved · profit unknown');
+    const { AppThemeProvider } = require('@/ui/theme');
+    await rerender(
+      <AppThemeProvider>
+        <SaleDetailView detail={detail({ cancelledAt: AT + 1000 })} actions={actions()} />
+      </AppThemeProvider>,
+    );
+    expect(screen.getByTestId('sale-profit-returned')).toHaveTextContent('Returned: no profit counted');
+    expect(screen.queryByTestId('sale-item-profit-i1')).toBeNull();
   });
 });

@@ -4,13 +4,12 @@ import { router } from 'expo-router';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import type { ProductListRow } from '@/db/repo/productQueries';
 import { formatINR } from '@/lib/money';
 import { AppText, Button, ChipGroup, EmptyState, Icon, IconButton, PressableScale, Screen, type ChipOption } from '@/ui/components';
 import { LoomEmptyState } from '@/ui/patterns';
 import { useTheme } from '@/ui/theme';
 
-import { useCatalogueSource } from '../hooks/useCatalogueSource';
+import { useCatalogueSource, type TileProduct } from '../hooks/useCatalogueSource';
 import { useExitFlow } from '../hooks/useExitFlow';
 import type { SourceKind } from '../logic/selection';
 import { ProductThumb } from './ProductThumb';
@@ -31,6 +30,10 @@ export function SourceStep() {
     { value: 'selected', label: t('source.selected'), icon: 'touch-app' },
   ];
   if (s.customer) kinds.push({ value: 'suggested', label: t('source.suggested', { name: s.customer.name }), icon: 'favorite' });
+  // Their personal catalogue comes first: it is what the seller most likely opened the flow for.
+  if (s.customer && (s.theirs.length > 0 || s.source.kind === 'customer')) {
+    kinds.unshift({ value: 'customer', label: t('source.theirs', { name: s.customer.name, count: s.theirs.length }), icon: 'bookmark' });
+  }
 
   return (
     <Screen
@@ -73,7 +76,8 @@ function SourceBody({ s, kinds, tile }: { s: Source; kinds: ChipOption<SourceKin
   const { t } = useTranslation('catalogue');
   const { space } = useTheme();
 
-  const gridData: ProductListRow[] = s.source.kind === 'selected' ? s.products : s.source.kind === 'suggested' ? s.suggested : [];
+  const gridData: TileProduct[] =
+    s.source.kind === 'selected' ? s.products : s.source.kind === 'suggested' ? s.suggested : s.source.kind === 'customer' ? s.theirs : [];
   const picked = new Set(s.source.productIds);
 
   const top = (
@@ -99,6 +103,19 @@ function SourceBody({ s, kinds, tile }: { s: Source; kinds: ChipOption<SourceKin
             {s.source.productIds.length > 0 ? t('source.pickedCount', { count: s.source.productIds.length }) : t('source.pickHint')}
           </AppText>
           {s.source.productIds.length > 0 ? <Button label={t('source.clearPicks')} variant="ghost" size="sm" onPress={s.clearPicks} /> : null}
+        </View>
+      ) : null}
+      {s.source.kind === 'customer' && s.customer ? (
+        <View style={{ gap: space.xs }}>
+          <AppText muted>{s.theirs.length > 0 ? t('source.theirsHint', { name: s.customer.name }) : t('source.theirsEmpty', { name: s.customer.name })}</AppText>
+          {s.theirSoldOut > 0 ? (
+            <View style={[styles.row, { gap: space.xs }]} testID="source-theirs-sold-out">
+              <Icon name="info-outline" size={18} tone="textMuted" />
+              <AppText variant="small" muted style={styles.flex}>
+                {t('source.theirsSoldOut', { count: s.theirSoldOut })}
+              </AppText>
+            </View>
+          ) : null}
         </View>
       ) : null}
       {s.source.kind === 'suggested' && s.customer ? (
@@ -155,7 +172,7 @@ function AllPreview({ s }: { s: Source }) {
   );
 }
 
-export function PickTile({ product, size, picked, onToggle }: { product: ProductListRow; size: number; picked: boolean; onToggle?: () => void }) {
+export function PickTile({ product, size, picked, onToggle }: { product: TileProduct; size: number; picked: boolean; onToggle?: () => void }) {
   const { t } = useTranslation('catalogue');
   const { colors, space, radius } = useTheme();
   const soldOut = product.totalPieces <= 0;

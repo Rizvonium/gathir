@@ -11,7 +11,13 @@
     "piecesLabel_other": "pieces in stock",
     "designs": "Designs",
     "value": "Stock value",
-    "a11y": "Stock: {{pieces}} pieces in {{designs}} designs, worth {{value}}. Open stock."
+    "a11y": "Stock: {{pieces}} pieces in {{designs}} designs, worth {{value}}.{{cost}} Open stock.",
+    "valueAtRate": "At selling rate",
+    "valueAtCost": "At buying price",
+    "costA11y": "At buying price {{value}}.",
+    "costHiddenA11y": "Buying price hidden.",
+    "costUnknown_one": "{{count}} piece has no buying price",
+    "costUnknown_other": "{{count}} pieces have no buying price"
   },
   "today": {
     "title": "Today",
@@ -83,5 +89,15 @@
   },
   "errors": {
     "generic": "Something went wrong. Your data is safe."
+  },
+  "profit": {
+    "title": "Today's profit",
+    "hidden": "Hidden",
+    "unknown": "Profit unknown",
+    "margin": "{{pct}} margin",
+    "unknownItems_one": "{{count}} item without buying price is not counted",
+    "unknownItems_other": "{{count}} items without buying price are not counted",
+    "openHint": "Opens profit details",
+    "noSales": "No sales yet today. See profit for the week and month."
   }
 }

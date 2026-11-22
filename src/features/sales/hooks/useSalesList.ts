@@ -3,9 +3,10 @@ import { useState } from 'react';
 
 import { useDbQuery, useSales, useToday } from '@/db/hooks';
 import { hasAnySale } from '@/db/repo/sales';
+import type { ProfitTotals } from '@/db/repo/profitMath';
 import type { PaymentMethod } from '@/db/schema';
 
-import { emptyKind, groupSalesByDay, periodRange, totalsOf, type EmptyKind, type SalesListItem, type SalesPeriod, type SalesTotals } from '../logic/salesList';
+import { emptyKind, groupSalesByDay, periodRange, profitOfRows, totalsOf, type EmptyKind, type SalesListItem, type SalesPeriod, type SalesTotals } from '../logic/salesList';
 
 export type SalesListModel = {
   period: SalesPeriod;
@@ -14,6 +15,8 @@ export type SalesListModel = {
   items: SalesListItem[];
   stickyIndices: number[];
   totals: SalesTotals;
+  /** Seller-only profit of the listed (non-returned) sales. Optional for older callers. */
+  profit?: ProfitTotals;
   empty: EmptyKind;
 };
 
@@ -37,6 +40,7 @@ export function useSalesList(): { model: SalesListModel; actions: SalesListActio
       items,
       stickyIndices,
       totals: totalsOf(rows),
+      profit: profitOfRows(rows),
       empty: emptyKind({ rows: rows.length, period, payment, anySalesEver }),
     },
     actions: { setPeriod, setPayment },

@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -10,8 +9,6 @@ export type ColourStockRowProps = {
   colour: Colour;
   oneOfAKind: boolean;
   lowThreshold: number;
-  /** Bumped by the parent after the reason sheet closes: the stepper re-syncs to the saved count. */
-  resetKey: number;
   onRestock: (colourId: string, qty: number) => void;
   /** "−" pressed: ask why. `qty` grows while "−" is held. */
   onRequestReduce: (colour: Colour, qty: number) => void;
@@ -23,27 +20,16 @@ export type ColourStockRowProps = {
  * "−" never changes the count by itself, it asks for a reason first. One-of-a-kind pieces
  * show their state and a Sell button instead.
  */
-export function ColourStockRow({ colour, oneOfAKind, lowThreshold, resetKey, onRestock, onRequestReduce, onSell }: ColourStockRowProps) {
+export function ColourStockRow({ colour, oneOfAKind, lowThreshold, onRestock, onRequestReduce, onSell }: ColourStockRowProps) {
   const { space } = useTheme();
   const { t } = useTranslation('stock');
-  // The value the stepper last showed, and the count we expect the database to hold.
-  const shown = useRef(colour.pieces);
-  const expected = useRef(colour.pieces);
 
-  useEffect(() => {
-    shown.current = colour.pieces;
-    expected.current = colour.pieces;
-  }, [resetKey, colour.pieces]);
-
+  // The stepper is controlled by the saved count. "+" saves one piece per step (a hold keeps
+  // counting up). "−" saves nothing: it asks for a reason for (saved − shown) pieces; when the sheet
+  // closes the count is still the saved one, so the stepper is back in sync on its own.
   const onChange = (next: number) => {
-    const up = next > shown.current;
-    shown.current = next;
-    if (up) {
-      expected.current += 1;
-      onRestock(colour.id, 1);
-    } else {
-      onRequestReduce(colour, Math.max(1, expected.current - next));
-    }
+    if (next > colour.pieces) onRestock(colour.id, 1);
+    else onRequestReduce(colour, Math.max(1, colour.pieces - next));
   };
 
   if (oneOfAKind) {
@@ -73,7 +59,6 @@ export function ColourStockRow({ colour, oneOfAKind, lowThreshold, resetKey, onR
         </AppText>
       </View>
       <Stepper
-        key={resetKey}
         testID={`stepper-${colour.id}`}
         size="md"
         value={colour.pieces}

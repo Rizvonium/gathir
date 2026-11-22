@@ -1,7 +1,15 @@
 /** Step 1 "What to send" (PLAN §6 flow). Pure. */
 import type { CatalogueSelection } from '@/db/repo/reports';
 
-export type SourceKind = 'all' | 'category' | 'selected' | 'suggested';
+/** 'customer' = the customer's personal catalogue (their designs, their special rates). */
+export type SourceKind = 'all' | 'category' | 'selected' | 'suggested' | 'customer';
+
+/** What the PDF is built from: a plain selection, or one customer's personal catalogue. */
+export type FlowSelection = CatalogueSelection | { customerCatalogue: string };
+
+export function isCustomerCatalogue(selection: FlowSelection | null): selection is { customerCatalogue: string } {
+  return typeof selection === 'object' && selection !== null && 'customerCatalogue' in selection;
+}
 
 export type SourceState = {
   kind: SourceKind;
@@ -16,6 +24,8 @@ export type FlowParams = {
   productIds?: string | string[];
   categoryId?: string | string[];
   customerId?: string | string[];
+  /** 'customer' opens on the customer's personal catalogue (needs customerId). */
+  mode?: string | string[];
 };
 
 function first(v: string | string[] | undefined): string | undefined {
@@ -40,6 +50,7 @@ export function paramValue(v: string | string[] | undefined): string | null {
 export function initialSource(params: FlowParams): SourceState {
   const productIds = parseIdList(params.productIds);
   const categoryId = first(params.categoryId) ?? null;
+  if (first(params.mode) === 'customer' && first(params.customerId)) return { kind: 'customer', categoryId: null, productIds: [] };
   if (productIds.length > 0) return { kind: 'selected', categoryId, productIds };
   if (categoryId) return { kind: 'category', categoryId, productIds: [] };
   if (first(params.customerId)) return { kind: 'suggested', categoryId: null, productIds: [] };
@@ -52,10 +63,10 @@ export function toggleId(ids: readonly string[], id: string): string[] {
 }
 
 /**
- * The repo selection for a source, or null when nothing is chosen yet
- * (no category picked, nothing ticked, no suggestions).
+ * The selection for a source, or null when nothing is chosen yet
+ * (no category picked, nothing ticked, no suggestions, no customer for 'customer').
  */
-export function toSelection(source: SourceState, suggestedIds: readonly string[]): CatalogueSelection | null {
+export function toSelection(source: SourceState, suggestedIds: readonly string[], customerId: string | null = null): FlowSelection | null {
   switch (source.kind) {
     case 'all':
       return 'all';
@@ -65,10 +76,12 @@ export function toSelection(source: SourceState, suggestedIds: readonly string[]
       return source.productIds.length > 0 ? { productIds: [...source.productIds] } : null;
     case 'suggested':
       return suggestedIds.length > 0 ? { productIds: [...suggestedIds] } : null;
+    case 'customer':
+      return customerId ? { customerCatalogue: customerId } : null;
   }
 }
 
 /** Stable key for the preview cache. */
-export function selectionKey(selection: CatalogueSelection | null): string {
+export function selectionKey(selection: FlowSelection | null): string {
   return JSON.stringify(selection);
 }

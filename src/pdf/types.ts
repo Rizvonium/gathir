@@ -58,8 +58,10 @@ export type CatalogueItemDoc = {
   craft: string;
   material: string;
   size: string;
-  /** Null when rates are hidden or not set. */
+  /** Null when rates are hidden or not set. In a personal catalogue: the customer's special rate when set. */
   ratePaise: number | null;
+  /** The rate is this customer's special price (shows a small "Special price for you" tag). */
+  specialPrice?: boolean;
   /** Null unless exact counts are shown. */
   totalPieces: number | null;
   availability: CatalogueAvailability;
@@ -108,6 +110,10 @@ export type OwnerSaleItemDoc = {
   ratePaise: number;
   amountPaise: number;
   photoDataUri: string | null;
+  /** Only in a report with profit: buying price per piece at sale time (null = unknown). */
+  costPaise?: number | null;
+  /** Only in a report with profit: line profit after its share of the discount (null = unknown). */
+  profitPaise?: number | null;
 };
 
 export type OwnerSaleDoc = {
@@ -119,6 +125,24 @@ export type OwnerSaleDoc = {
   note: string;
   customer: OwnerCustomerDoc | null;
   items: OwnerSaleItemDoc[];
+  /** Only in a report with profit: the bill's profit, null when a buying price is unknown. */
+  profitPaise?: number | null;
+};
+
+/** A profit row (category or design). Revenue/profit count only items with a buying price. */
+export type OwnerProfitRowDoc = { label: string | null; revenuePaise: number; profitPaise: number; marginPct: number | null; unknownCostItems: number };
+
+/** Seller's buying prices and profit. Present ONLY when the seller turned "report includes profit" on. */
+export type OwnerProfitDoc = {
+  profitPaise: number;
+  marginPct: number | null;
+  knownCostPaise: number;
+  knownRevenuePaise: number;
+  unknownCostItems: number;
+  byCategory: OwnerProfitRowDoc[];
+  byProduct: OwnerProfitRowDoc[];
+  stockValueAtCostPaise: number;
+  stockCostUnknownPieces: number;
 };
 
 export type OwnerStockChangeDoc = {
@@ -169,6 +193,8 @@ export type OwnerReportDoc = {
   stockChanges: OwnerStockChangeDoc[];
   stock: OwnerStockRowDoc[];
   totals: { totalPieces: number; designs: number; stockValuePaise: number; lowCount: number; outCount: number };
+  /** Null/absent unless the seller chose to include buying prices and profit. */
+  profit?: OwnerProfitDoc | null;
   fontCss?: string;
 };
 

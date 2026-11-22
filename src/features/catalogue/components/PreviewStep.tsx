@@ -24,18 +24,22 @@ export function PreviewStep() {
   const exit = useExitFlow();
   const p = useCataloguePreview();
   const customer = useCustomerBrief(useCatalogueFlow((s) => s.customerId));
+  // Their own catalogue carries their special rates: it goes only to them.
+  const personal = useCatalogueFlow((s) => s.source.kind === 'customer');
   const stats = p.stats[p.partIndex];
 
   const footer =
     p.status === 'ready' ? (
       customer ? (
         <View style={[styles.row, { gap: space.sm }]}>
-          <Button
-            label={t('preview.someoneElse')}
-            variant="secondary"
-            size="lg"
-            onPress={() => router.push({ pathname: '/catalogue/send', params: { choose: '1' } })}
-          />
+          {personal ? null : (
+            <Button
+              label={t('preview.someoneElse')}
+              variant="secondary"
+              size="lg"
+              onPress={() => router.push({ pathname: '/catalogue/send', params: { choose: '1' } })}
+            />
+          )}
           <Button
             testID="preview-send"
             label={t('preview.sendTo', { name: customer.name })}

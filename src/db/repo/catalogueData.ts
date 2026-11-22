@@ -21,8 +21,10 @@ export type CatalogueProduct = {
   craft: string;
   material: string;
   size: string;
-  /** Null when rates are hidden. */
+  /** Null when rates are hidden. In a customer's personal catalogue: their special rate when set. */
   ratePaise: number | null;
+  /** True when `ratePaise` is this customer's special rate (personal catalogue only). */
+  specialPrice?: boolean;
   /** Null unless exact counts are shown. */
   totalPieces: number | null;
   availability: Availability;
@@ -38,6 +40,10 @@ export type CatalogueData = {
   generatedAt: number;
   options: CatalogueOptions;
   products: CatalogueProduct[];
+  /** Personal catalogue: the customer's name for "Prepared for <name>". */
+  preparedFor?: string | null;
+  /** Personal catalogue: the customer it was built for. */
+  customerId?: string | null;
 };
 
 /** Up to this many pieces counts as "Only n left". */

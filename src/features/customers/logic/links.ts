@@ -29,4 +29,12 @@ export function catalogueHref(customerId: string, productIds: readonly string[] 
   return href('/catalogue', clean({ customerId, productIds: productIds.join(',') }));
 }
 
+/** "Send their catalogue": the catalogue flow opened on this customer's personal catalogue. */
+export const theirCatalogueHref = (customerId: string) => href('/catalogue', { customerId, mode: 'customer' });
+
+/** Product picker that adds designs to this customer's catalogue. */
+export const addPiecesHref = (customerId: string) => href('/customer/[id]/add-pieces', { id: customerId });
+
+export const editProductHref = (productId: string) => href('/product/[id]/edit', { id: productId });
+
 export const deletedHref = () => href('/deleted');

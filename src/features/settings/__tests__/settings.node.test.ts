@@ -98,6 +98,7 @@ describe('settingsData', () => {
     expect(s.shopName).toBe('');
     expect(s.pinSet).toBe(false);
     expect(s.includePhones).toBe(true);
+    expect(s.includeProfit).toBe(false);
     expect(s.sentReports).toBe(0);
   });
 

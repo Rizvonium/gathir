@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { db } from '@/db/client';
-import { useCustomerProfile, useDbQuery, useSuggestedProducts } from '@/db/hooks';
+import { useCatalogueVersions, useCustomerCatalogue, useCustomerProfile, useDbQuery, useLowStockLevel, useSuggestedProducts } from '@/db/hooks';
 import { restoreCustomer, softDeleteCustomer, updateCustomer } from '@/db/repo/customers';
 import { DuplicateCustomerError } from '@/db/repo/errors';
 import { addNote, deleteEvent, setFollowUpNotification } from '@/db/repo/events';
@@ -27,6 +27,7 @@ import {
 } from '../followUpNotifications';
 import { acceptSuggestion, learnedSuggestion, suggestionKey, type LikesSuggestion } from '../logic/customerLogic';
 import { referencedProductIds, timelineRows } from '../logic/timeline';
+import { useTheirCatalogueActions } from './useTheirCatalogue';
 
 export function useCustomerProfileScreen(id: string | undefined) {
   const { t } = useTranslation('customers');
@@ -34,6 +35,9 @@ export function useCustomerProfileScreen(id: string | undefined) {
   const profile = useCustomerProfile(id);
   const suggestions = useSuggestedProducts(id, 12);
   const [dismissedSuggestion, setDismissedSuggestion] = useState<string | null>(null);
+  const catalogueRows = useCustomerCatalogue(id);
+  const catalogueVersions = useCatalogueVersions(id);
+  const lowStockLevel = useLowStockLevel();
 
   const rows = profile ? timelineRows(profile.timeline) : [];
   const refIds = referencedProductIds(rows).join(',');
@@ -50,6 +54,8 @@ export function useCustomerProfileScreen(id: string | undefined) {
   );
 
   const name = profile?.customer.name ?? '';
+  const catalogue = useTheirCatalogueActions(id, name);
+  const inCatalogue = new Set(catalogueRows.map((r) => r.productId));
   const fail = (e?: unknown) => {
     playHaptic('error');
     if (e instanceof DuplicateCustomerError) toast.show({ message: t('profile.restoreClash', { name: e.existingName }), tone: 'danger' });
@@ -212,5 +218,11 @@ export function useCustomerProfileScreen(id: string | undefined) {
     markDone,
     deleteCustomer,
     restore: restoreHere,
+    catalogueRows,
+    catalogueVersions,
+    lowStockLevel,
+    inCatalogue,
+    catalogue,
+    addSuggestedToCatalogue: (productId: string) => catalogue.add([productId], inCatalogue),
   };
 }

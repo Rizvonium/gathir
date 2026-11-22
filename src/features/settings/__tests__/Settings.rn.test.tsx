@@ -64,6 +64,7 @@ const summary = {
   sellerName: 'Bilal',
   ownerWhatsapp: '',
   includePhones: true,
+  includeProfit: false,
   lowStockLevel: 2,
   categoryCount: 4,
   catalogueStyle: 'bazaar',
@@ -108,6 +109,13 @@ describe('More tab', () => {
     expect(mockRouter.push).toHaveBeenCalledWith('/deleted');
     await fireEvent.press(screen.getByTestId('more-report-phones'));
     expect(mockUpdateSettings).toHaveBeenCalledWith({}, { reportIncludesCustomerPhones: false });
+  });
+
+  it('buying price & profit in owner reports: off by default, one tap turns it on', async () => {
+    await renderWithTheme(<MoreScreen />);
+    expect(screen.getByTestId('more-report-profit')).not.toBeChecked();
+    await fireEvent.press(screen.getByTestId('more-report-profit'));
+    expect(mockUpdateSettings).toHaveBeenCalledWith({}, { reportIncludesProfit: true });
   });
 });
 

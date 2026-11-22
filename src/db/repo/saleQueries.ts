@@ -6,6 +6,7 @@ import { startOfDay } from '@/lib/dates';
 import { categories, customers, products, saleItems, sales, PAYMENT_METHODS, type Customer, type PaymentMethod, type Sale, type SaleItem } from '../schema';
 import type { DbOrTx } from '../types';
 import { chunk } from './constants';
+import { addLine, computeSaleProfit, EMPTY_TOTALS, finishTotals, type SaleProfit } from './profitMath';
 
 export type DateRange = { from: number; to: number };
 
@@ -25,9 +26,24 @@ export type SaleListRow = {
   pieces: number;
   itemCount: number;
   items: SaleItem[];
+  /** Seller-only. Profit of the whole bill, or null when any item's buying price is unknown. */
+  profitPaise: number | null;
+  /** Seller-only. Profit on the items whose buying price is known. */
+  knownProfitPaise: number;
+  /** Items (lines) without a buying price. */
+  unknownCostItems: number;
 };
 
-export type SaleDetail = { sale: Sale; items: SaleItem[]; customer: Customer | null };
+/** `profit` is seller-only: never pass it to bills, catalogues or Showroom. */
+export type SaleDetail = { sale: Sale; items: SaleItem[]; customer: Customer | null; profit: SaleProfit };
+
+/** Profit of one sale from its item snapshots (discount shared between items). */
+export function profitOfSale(sale: Pick<Sale, 'discountPaise'>, items: readonly SaleItem[]): SaleProfit {
+  return computeSaleProfit({
+    discountPaise: sale.discountPaise,
+    items: items.map((i) => ({ qty: i.qty, ratePaise: i.ratePaise, costPaise: i.costPaiseSnapshot })),
+  });
+}
 
 export type SalesSummary = {
   pieces: number;
@@ -37,6 +53,12 @@ export type SalesSummary = {
   byPayment: Record<PaymentMethod, { count: number; amountPaise: number }>;
   /** Gross item value (before bill discounts) per current product category. */
   byCategory: { categoryId: string | null; name: string | null; pieces: number; amountPaise: number }[];
+  /** Seller-only profit figures (see src/db/repo/profit.ts): profit on items with a known buying price. */
+  profitPaise: number;
+  knownCostPaise: number;
+  knownRevenuePaise: number;
+  marginPct: number | null;
+  unknownCostItems: number;
 };
 
 /** Sale items for many sales, grouped by sale id. */
@@ -60,6 +82,7 @@ function toRows(db: DbOrTx, list: Sale[]): SaleListRow[] {
   );
   return list.map((s) => {
     const its = items.get(s.id) ?? [];
+    const profit = profitOfSale(s, its);
     return {
       id: s.id,
       billNo: s.billNo,
@@ -75,6 +98,9 @@ function toRows(db: DbOrTx, list: Sale[]): SaleListRow[] {
       pieces: its.reduce((n, i) => n + i.qty, 0),
       itemCount: its.length,
       items: its,
+      profitPaise: profit.fullProfitPaise,
+      knownProfitPaise: profit.profitPaise,
+      unknownCostItems: profit.unknownCostItems,
     };
   });
 }
@@ -108,7 +134,7 @@ export function getSale(db: DbOrTx, saleId: string): SaleDetail | null {
   if (!sale) return null;
   const items = db.select().from(saleItems).where(eq(saleItems.saleId, saleId)).orderBy(sql`"sale_items"."rowid"`).all();
   const customer = sale.customerId ? (db.select().from(customers).where(eq(customers.id, sale.customerId)).get() ?? null) : null;
-  return { sale, items, customer };
+  return { sale, items, customer, profit: profitOfSale(sale, items) };
 }
 
 /** Totals for non-cancelled sales in [from, to]. */
@@ -146,6 +172,15 @@ export function summarise(db: DbOrTx, list: Sale[]): SalesSummary {
   for (const c of cats) productCats.set(c.productId, { id: c.categoryId, name: c.name });
   const byCat = new Map<string, SalesSummary['byCategory'][number]>();
   let pieces = 0;
+  let profit = EMPTY_TOTALS;
+  for (const s of live) {
+    const its = items.get(s.id) ?? [];
+    const p = profitOfSale(s, its);
+    its.forEach((it, k) => {
+      profit = addLine(profit, p.lines[k], it.qty);
+    });
+  }
+  profit = finishTotals(profit);
   for (const its of items.values()) {
     for (const it of its) {
       pieces += it.qty;
@@ -158,7 +193,19 @@ export function summarise(db: DbOrTx, list: Sale[]): SalesSummary {
     }
   }
   const byCategory = [...byCat.values()].sort((a, b) => b.amountPaise - a.amountPaise);
-  return { pieces, amountPaise, count: live.length, discountsPaise, byPayment, byCategory };
+  return {
+    pieces,
+    amountPaise,
+    count: live.length,
+    discountsPaise,
+    byPayment,
+    byCategory,
+    profitPaise: profit.profitPaise,
+    knownCostPaise: profit.knownCostPaise,
+    knownRevenuePaise: profit.knownRevenuePaise,
+    marginPct: profit.marginPct,
+    unknownCostItems: profit.unknownCostItems,
+  };
 }
 
 /** Non-cancelled sales not yet included in a sent owner report (optionally only after a time), oldest first. */

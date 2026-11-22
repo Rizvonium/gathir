@@ -2,6 +2,7 @@
  * App lock rules (PLAN §3 Safety, §15 DPDP risk). Pure: no expo imports, so it runs in Node tests.
  * The PIN is never stored: only SHA-256(salt + ":" + pin) and a random salt, in secure storage.
  */
+import { SHOWROOM_LEAVE_PATH } from '@/features/showroom/logic/leave';
 
 export const PIN_LENGTH = 4;
 /** Wrong PINs allowed before a pause. */
@@ -123,4 +124,18 @@ export function safeReturnTo(value: string | string[] | undefined | null): strin
   if (!v || typeof v !== 'string') return null;
   if (!v.startsWith('/') || v.startsWith('//') || v.includes('://')) return null;
   return v;
+}
+
+/**
+ * Return targets that must not be skipped around: the lock screen in front of them stays put on
+ * Android back (only its close button leaves). Today: leaving the customer-facing Showroom.
+ */
+export const BACK_GUARDED_RETURNS: readonly string[] = [SHOWROOM_LEAVE_PATH];
+
+/** True when Android back must be blocked on /lock (verify mode guarding a protected return). */
+export function lockBlocksBack(mode: 'set' | 'verify' | 'change', returnTo: string | string[] | undefined | null): boolean {
+  const target = safeReturnTo(returnTo);
+  if (mode !== 'verify' || !target) return false;
+  const path = target.split('?')[0];
+  return BACK_GUARDED_RETURNS.includes(path);
 }

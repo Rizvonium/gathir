@@ -24,19 +24,41 @@ import { PatternPlaceholder } from '@/ui/patterns';
 import { useTheme } from '@/ui/theme';
 import { touchTarget } from '@/ui/tokens';
 
+import { MarginText, ProfitAmount } from '@/features/profit/components/ProfitBits';
+import { formatMargin, formatProfit } from '@/features/profit/logic';
+import { HIDDEN_FIGURE } from '@/features/profit/privacy';
+
 import type { AttentionItem, BackupReminder, Comparison, ReportStatus } from './homeLogic';
 
 /* ---------- Stock ---------- */
 
-export function StockCard({ pieces, designs, valuePaise }: { pieces: number; designs: number; valuePaise: number }) {
+export type StockCardProps = {
+  pieces: number;
+  designs: number;
+  valuePaise: number;
+  /** Seller-only: pieces × buying price for pieces that have one. Omit to leave the line out. */
+  costValuePaise?: number;
+  /** Pieces in stock without a buying price (left out of costValuePaise). */
+  costUnknownPieces?: number;
+  /** Profit figures shown (the shared eye toggle). */
+  profitVisible?: boolean;
+};
+
+export function StockCard({ pieces, designs, valuePaise, costValuePaise, costUnknownPieces = 0, profitVisible = true }: StockCardProps) {
   const { t } = useTranslation('home');
   const { space } = useTheme();
   const router = useRouter();
+  const showCost = costValuePaise !== undefined && pieces > 0;
+  const costA11y = !showCost
+    ? ''
+    : !profitVisible
+      ? ` ${t('stock.costHiddenA11y')}`
+      : ` ${t('stock.costA11y', { value: formatINR(costValuePaise) })}${costUnknownPieces > 0 ? ` ${t('stock.costUnknown', { count: costUnknownPieces })}` : ''}`;
   return (
     <Card
       testID="home-stock"
       onPress={() => router.navigate('/stock')}
-      accessibilityLabel={t('stock.a11y', { pieces: formatNumber(pieces), designs: formatNumber(designs), value: formatINR(valuePaise) })}
+      accessibilityLabel={t('stock.a11y', { pieces: formatNumber(pieces), designs: formatNumber(designs), value: formatINR(valuePaise), cost: costA11y })}
       padding="xl">
       <View importantForAccessibility="no-hide-descendants" style={{ gap: space.lg }}>
         <View style={{ gap: space.xxs }}>
@@ -53,8 +75,32 @@ export function StockCard({ pieces, designs, valuePaise }: { pieces: number; des
         <Divider />
         <View style={[styles.row, { gap: space.lg }]}>
           <Figure label={t('stock.designs')} value={designs} />
-          <Figure label={t('stock.value')} value={valuePaise} format={formatINR} />
+          <Figure label={showCost ? t('stock.valueAtRate') : t('stock.value')} value={valuePaise} format={formatINR} />
         </View>
+        {showCost ? (
+          <View style={{ gap: space.xxs }} testID="home-stock-cost">
+            <View style={[styles.row, { gap: space.lg }]}>
+              <View style={styles.flex} />
+              <View style={styles.flex}>
+                <AppText variant="caption" muted>
+                  {t('stock.valueAtCost')}
+                </AppText>
+                {profitVisible ? (
+                  <RollingNumber value={costValuePaise} format={formatINR} variant="title" accessible={false} testID="home-stock-cost-value" />
+                ) : (
+                  <AppText variant="title" muted>
+                    {HIDDEN_FIGURE}
+                  </AppText>
+                )}
+              </View>
+            </View>
+            {profitVisible && costUnknownPieces > 0 ? (
+              <AppText variant="caption" tone="lowText" align="end">
+                {t('stock.costUnknown', { count: costUnknownPieces })}
+              </AppText>
+            ) : null}
+          </View>
+        ) : null}
       </View>
     </Card>
   );
@@ -73,7 +119,27 @@ function Figure({ label, value, format }: { label: string; value: number; format
 
 /* ---------- Today ---------- */
 
-export function TodayCard({ pieces, amountPaise, compare }: { pieces: number; amountPaise: number; compare: Comparison }) {
+export type TodayProfit = {
+  profitPaise: number;
+  marginPct: number | null;
+  /** Items sold today without a buying price (their profit is not counted). */
+  unknownItems: number;
+};
+
+export function TodayCard({
+  pieces,
+  amountPaise,
+  compare,
+  profit,
+  profitVisible = true,
+}: {
+  pieces: number;
+  amountPaise: number;
+  compare: Comparison;
+  /** Seller-only "Today's profit"; omit to leave the row out. */
+  profit?: TodayProfit;
+  profitVisible?: boolean;
+}) {
   const { t } = useTranslation('home');
   const { colors, space } = useTheme();
   const router = useRouter();
@@ -85,37 +151,107 @@ export function TodayCard({ pieces, amountPaise, compare }: { pieces: number; am
       : t(compare.direction === 'up' ? 'today.vsYesterdayUp' : 'today.vsYesterdayDown', { value: formatINR(compare.diff) });
   const icon: IconName = nothingYet || compare.direction === 'same' ? 'trending-flat' : compare.direction === 'up' ? 'trending-up' : 'trending-down';
   const tone = compare.direction === 'up' && !nothingYet ? colors.meadow : colors.textMuted;
-  return (
-    <Card
-      testID="home-today"
-      onPress={() => router.navigate('/sales')}
-      accessibilityLabel={t('today.a11y', { pieces: formatNumber(pieces), amount: formatINR(amountPaise), compare: compareText })}>
-      <View importantForAccessibility="no-hide-descendants" style={{ gap: space.md }}>
-        <AppText variant="small" weight="semibold" muted>
-          {t('today.title')}
-        </AppText>
-        <View style={[styles.row, { gap: space.lg }]}>
-          <View style={styles.flex}>
-            <RollingNumber value={pieces} variant="heading" accessible={false} />
-            <AppText variant="caption" muted>
-              {t('today.sold')}
-            </AppText>
-          </View>
-          <View style={styles.flex2}>
-            <RollingNumber value={amountPaise} format={formatINR} variant="heading" accessible={false} />
-            <AppText variant="caption" muted>
-              {t('today.amount')}
-            </AppText>
-          </View>
+  const salesPart = (
+    <View importantForAccessibility="no-hide-descendants" style={{ gap: space.md }}>
+      <AppText variant="small" weight="semibold" muted>
+        {t('today.title')}
+      </AppText>
+      <View style={[styles.row, { gap: space.lg }]}>
+        <View style={styles.flex}>
+          <RollingNumber value={pieces} variant="heading" accessible={false} />
+          <AppText variant="caption" muted>
+            {t('today.sold')}
+          </AppText>
         </View>
-        <View style={[styles.row, styles.center, { gap: space.xs }]}>
-          <Icon name={icon} size={18} color={tone} />
-          <AppText variant="small" color={tone} style={styles.flex} testID="home-today-compare">
-            {compareText}
+        <View style={styles.flex2}>
+          <RollingNumber value={amountPaise} format={formatINR} variant="heading" accessible={false} />
+          <AppText variant="caption" muted>
+            {t('today.amount')}
           </AppText>
         </View>
       </View>
+      <View style={[styles.row, styles.center, { gap: space.xs }]}>
+        <Icon name={icon} size={18} color={tone} />
+        <AppText variant="small" color={tone} style={styles.flex} testID="home-today-compare">
+          {compareText}
+        </AppText>
+      </View>
+    </View>
+  );
+  const a11y = t('today.a11y', { pieces: formatNumber(pieces), amount: formatINR(amountPaise), compare: compareText });
+
+  if (!profit) {
+    return (
+      <Card testID="home-today" onPress={() => router.navigate('/sales')} accessibilityLabel={a11y}>
+        {salesPart}
+      </Card>
+    );
+  }
+  return (
+    <Card testID="home-today" padding="none">
+      <PressableScale
+        testID="home-today-sales"
+        onPress={() => router.navigate('/sales')}
+        accessibilityRole="button"
+        accessibilityLabel={a11y}
+        style={{ padding: space.lg }}>
+        {salesPart}
+      </PressableScale>
+      <Divider />
+      <TodayProfitRow profit={profit} visible={profitVisible} soldToday={pieces > 0} />
     </Card>
+  );
+}
+
+/** "Today's profit ₹5,000 · 38% margin" → the Profit screen. */
+function TodayProfitRow({ profit, visible, soldToday }: { profit: TodayProfit; visible: boolean; soldToday: boolean }) {
+  const { t } = useTranslation('home');
+  const { space } = useTheme();
+  const router = useRouter();
+  const unknownAll = profit.unknownItems > 0 && profit.profitPaise === 0 && profit.marginPct === null;
+  const margin = formatMargin(profit.marginPct);
+  const value = !soldToday
+    ? t('profit.noSales')
+    : !visible
+    ? t('profit.hidden')
+    : unknownAll
+      ? t('profit.unknown')
+      : `${formatProfit(profit.profitPaise)}${margin ? `, ${t('profit.margin', { pct: margin })}` : ''}`;
+  const unknownText = soldToday && visible && !unknownAll && profit.unknownItems > 0 ? t('profit.unknownItems', { count: profit.unknownItems }) : null;
+  return (
+    <PressableScale
+      testID="home-today-profit"
+      onPress={() => router.push('/profit')}
+      accessibilityRole="button"
+      accessibilityLabel={[`${t('profit.title')}: ${value}`, unknownText].filter(Boolean).join('. ')}
+      accessibilityHint={t('profit.openHint')}
+      style={[styles.row, styles.center, { gap: space.md, paddingHorizontal: space.lg, paddingVertical: space.md, minHeight: 56 }]}>
+      <View style={styles.flex} importantForAccessibility="no-hide-descendants">
+        <AppText variant="caption" muted>
+          {t('profit.title')}
+        </AppText>
+        {!soldToday ? (
+          <AppText variant="small" muted>
+            {t('profit.noSales')}
+          </AppText>
+        ) : visible && unknownAll ? (
+          <AppText weight="semibold" tone="lowText">
+            {t('profit.unknown')}
+          </AppText>
+        ) : (
+          <View style={[styles.row, styles.baseline, { gap: space.sm }]}>
+            <ProfitAmount paise={profit.profitPaise} visible={visible} variant="title" testID="home-today-profit-amount" />
+            <MarginText pct={profit.marginPct} visible={visible} />
+          </View>
+        )}
+        {unknownText ? (
+          <AppText variant="caption" tone="lowText">
+            {unknownText}
+          </AppText>
+        ) : null}
+      </View>
+      <Icon name="chevron-right" tone="textMuted" />
+    </PressableScale>
   );
 }
 

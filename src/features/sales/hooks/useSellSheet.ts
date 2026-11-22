@@ -7,7 +7,7 @@ import { useDbQuery, useLowStockLevel, useProducts, useToday } from '@/db/hooks'
 import { getCustomerProfile } from '@/db/repo/customerQueries';
 import { getProductDetail } from '@/db/repo/productQueries';
 import { listSales } from '@/db/repo/saleQueries';
-import { cancelSale, createSale } from '@/db/repo/saleWrites';
+import { cancelSale, createSale, voidSale } from '@/db/repo/saleWrites';
 import type { PaymentMethod } from '@/db/schema';
 import type { ProductListRow } from '@/db/repo/productQueries';
 import { addDays } from '@/lib/dates';
@@ -122,11 +122,21 @@ export function useSellSheet(params: SellParams): SellController {
     }
   };
 
+  /**
+   * Undo from the "Sold" toast: a true void (sale gone, pieces back, bill number freed when it was
+   * the latest) within 2 minutes; after that, or if the sale is already in a report, it becomes a
+   * normal return so the pieces still come back.
+   */
   const undo = (saleId: string): boolean => {
     try {
-      return cancelSale(db, saleId);
+      voidSale(db, saleId);
+      return true;
     } catch {
-      return false;
+      try {
+        return cancelSale(db, saleId);
+      } catch {
+        return false;
+      }
     }
   };
 

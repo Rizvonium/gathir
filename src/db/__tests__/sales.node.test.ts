@@ -1,10 +1,11 @@
 import { eq } from 'drizzle-orm';
 
 import { RepoError } from '@/db/repo/errors';
-import { softDeleteProduct } from '@/db/repo/products';
-import { cancelSale, createSale, getSale, hasAnySale, listSales, salesSummary, unreportedSales } from '@/db/repo/sales';
+import { softDeleteProduct, stockHistory } from '@/db/repo/products';
+import { buildOwnerReportData } from '@/db/repo/reports';
+import { cancelSale, createSale, getSale, hasAnySale, listSales, salesSummary, unreportedSales, VOID_NOTE, VOID_WINDOW_MS, voidSale } from '@/db/repo/sales';
 import { createCategory } from '@/db/repo/categories';
-import { colours, customers, sales, stockMoves } from '@/db/schema';
+import { colours, customers, saleItems, sales, stockMoves } from '@/db/schema';
 import { productPieces, StockError } from '@/db/stock';
 import { createTestDb } from '@/test/testDb';
 
@@ -129,5 +130,68 @@ describe('sales', () => {
     expect(unreportedSales(db)).toHaveLength(3);
     expect(unreportedSales(db, T0 + DAY)).toHaveLength(1);
     expect(db.select().from(colours).all().every((c) => c.pieces >= 0)).toBe(true);
+  });
+});
+
+describe('voidSale (true Undo)', () => {
+  it('removes the sale, puts the pieces back with compensating moves and keeps the ledger consistent', () => {
+    const db = createTestDb();
+    const { productId, colourIds } = addTestProduct(db);
+    const before = productPieces(db, productId);
+    const sale = createSale(db, { items: [{ colourId: colourIds[0], qty: 2, ratePaise: 650_000 }, { colourId: colourIds[1], qty: 1, ratePaise: 600_000 }] }, T0);
+    expect(productPieces(db, productId)).toBe(before - 3);
+
+    voidSale(db, sale.saleId, T0 + 30_000);
+    expect(productPieces(db, productId)).toBe(before);
+    expect(getSale(db, sale.saleId)).toBeNull();
+    expect(db.select().from(saleItems).where(eq(saleItems.saleId, sale.saleId)).all()).toEqual([]);
+    // Append-only ledger: the sold moves stay, each with a +qty correction "sale voided".
+    const moves = db.select().from(stockMoves).where(eq(stockMoves.saleId, sale.saleId)).all();
+    expect(moves.map((m) => [m.reason, m.delta]).sort()).toEqual([
+      ['correction', 1],
+      ['correction', 2],
+      ['sold', -1],
+      ['sold', -2],
+    ]);
+    expect(moves.filter((m) => m.reason === 'correction').every((m) => m.note === VOID_NOTE)).toBe(true);
+    expectNoDrift(db);
+    // The history keeps the moves without a dead link to the voided sale.
+    expect(stockHistory(db, productId).filter((h) => h.reason === 'sold').every((h) => h.saleId === null && h.billNo === null)).toBe(true);
+    expect(listSales(db, { from: T0 - DAY, to: T0 + DAY })).toEqual([]);
+    // Nothing shows in the owner report's "stock changes not from sales".
+    expect(buildOwnerReportData(db, { from: T0 - DAY, to: T0 + DAY, includeCustomerPhones: false }).stockChanges.filter((c) => c.reason === 'correction')).toEqual([]);
+  });
+
+  it('gives the bill number back only when it is the latest', () => {
+    const db = createTestDb();
+    const { colourIds } = addTestProduct(db);
+    const item = { colourId: colourIds[0], qty: 1, ratePaise: 100 };
+    const s1 = createSale(db, { items: [item] }, T0);
+    const s2 = createSale(db, { items: [item] }, T0 + 1);
+    voidSale(db, s1.saleId, T0 + 2); // not the latest: B-2026-0001 is not reused
+    expect(createSale(db, { items: [item] }, T0 + 3).billNo).toBe('B-2026-0003');
+    const s4 = createSale(db, { items: [item] }, T0 + 4);
+    expect(s4.billNo).toBe('B-2026-0004');
+    voidSale(db, s4.saleId, T0 + 5); // latest: released
+    expect(createSale(db, { items: [item] }, T0 + 6).billNo).toBe('B-2026-0004');
+    expect(s2.billNo).toBe('B-2026-0002');
+    expectNoDrift(db);
+  });
+
+  it('refuses after 2 minutes, for returned or reported sales, and for unknown ids', () => {
+    const db = createTestDb();
+    const { colourIds } = addTestProduct(db);
+    const item = { colourId: colourIds[0], qty: 1, ratePaise: 100 };
+    const old = createSale(db, { items: [item] }, T0);
+    expect(() => voidSale(db, old.saleId, T0 + VOID_WINDOW_MS + 1)).toThrow(expect.objectContaining({ code: 'already_done' }));
+    const returned = createSale(db, { items: [item] }, T0);
+    cancelSale(db, returned.saleId, T0 + 1);
+    expect(() => voidSale(db, returned.saleId, T0 + 2)).toThrow(expect.objectContaining({ code: 'already_done' }));
+    const reported = createSale(db, { items: [item] }, T0);
+    db.update(sales).set({ reportId: 'r1' }).where(eq(sales.id, reported.saleId)).run();
+    expect(() => voidSale(db, reported.saleId, T0 + 2)).toThrow(expect.objectContaining({ code: 'already_done' }));
+    expect(() => voidSale(db, 'nope', T0)).toThrow(expect.objectContaining({ code: 'not_found' }));
+    expect(getSale(db, old.saleId)).not.toBeNull();
+    expectNoDrift(db);
   });
 });

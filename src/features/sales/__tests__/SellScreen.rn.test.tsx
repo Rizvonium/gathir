@@ -7,6 +7,8 @@ import { StockError } from '@/db/stock';
 import { ToastProvider } from '@/ui/components';
 import { renderWithTheme } from '@/ui/components/__tests__/renderWithTheme';
 
+import { useProfitPrivacy } from '@/features/profit/privacy';
+
 import { SellScreen } from '../components/SellScreen';
 import type { SellParams } from '../hooks/useSellSheet';
 
@@ -31,8 +33,8 @@ jest.mock('@/ui/patterns', () => {
 
 // ---- data layer stand-ins ----
 type Col = { id: string; name: string; hex: string; pieces: number };
-const products: Record<string, { name: string; ratePaise: number; colours: Col[] }> = {
-  p1: { name: 'Sozni stole', ratePaise: 650_000, colours: [{ id: 'red', name: 'Red', hex: '#C0262D', pieces: 3 }, { id: 'beige', name: 'Beige', hex: '#D8C3A5', pieces: 0 }] },
+const products: Record<string, { name: string; ratePaise: number; costPaise?: number; colours: Col[] }> = {
+  p1: { name: 'Sozni stole', ratePaise: 650_000, costPaise: 400_000, colours: [{ id: 'red', name: 'Red', hex: '#C0262D', pieces: 3 }, { id: 'beige', name: 'Beige', hex: '#D8C3A5', pieces: 0 }] },
   p2: { name: 'Kani shawl', ratePaise: 4_500_000, colours: [{ id: 'blue', name: 'Blue', hex: '#1F3A93', pieces: 2 }, { id: 'grey', name: 'Grey', hex: '#888888', pieces: 1 }] },
 };
 jest.mock('@/db/client', () => ({ db: {} }));
@@ -46,7 +48,7 @@ jest.mock('@/db/hooks', () => ({
 jest.mock('@/db/repo/productQueries', () => ({
   getProductDetail: (_d: unknown, id: string) => {
     const p = products[id];
-    return p ? { product: { id, name: p.name, ratePaise: p.ratePaise, deletedAt: null }, colours: p.colours, photos: [] } : null;
+    return p ? { product: { id, name: p.name, ratePaise: p.ratePaise, deletedAt: null, costPaise: p.costPaise ?? null }, colours: p.colours, photos: [] } : null;
   },
 }));
 jest.mock('@/db/repo/saleQueries', () => ({ listSales: () => [] }));
@@ -55,7 +57,12 @@ jest.mock('@/db/repo/customerQueries', () => ({
 }));
 const mockCreateSale = jest.fn();
 const mockCancelSale = jest.fn(() => true);
-jest.mock('@/db/repo/saleWrites', () => ({ createSale: (...a: unknown[]) => mockCreateSale(...a), cancelSale: (...a: unknown[]) => mockCancelSale(...(a as [])) }));
+const mockVoidSale = jest.fn((..._a: unknown[]) => undefined);
+jest.mock('@/db/repo/saleWrites', () => ({
+  createSale: (...a: unknown[]) => mockCreateSale(...a),
+  cancelSale: (...a: unknown[]) => mockCancelSale(...(a as [])),
+  voidSale: (...a: unknown[]) => mockVoidSale(...a),
+}));
 jest.mock('@/pdf', () => ({ getPdfFontCss: jest.fn(), renderPdf: jest.fn() }));
 jest.mock('@/share', () => ({ shareFileToWhatsApp: jest.fn() }));
 jest.mock('../hooks/useCustomerPicker', () => ({ useCustomerPicker: () => ({ results: [], findSavedByPhone: () => null }) }));
@@ -77,7 +84,9 @@ function Harness({ params }: { params: SellParams }) {
 beforeEach(() => {
   mockCreateSale.mockReset();
   mockCancelSale.mockClear();
+  mockVoidSale.mockReset();
   mockBack.mockClear();
+  useProfitPrivacy.getState().setHidden(false);
 });
 
 describe('Sell sheet', () => {
@@ -92,7 +101,21 @@ describe('Sell sheet', () => {
     expect(mockBack).toHaveBeenCalled();
     expect(screen.getByText('Sold 1 · Sozni stole (Red) · ₹6,500')).toBeTruthy();
     await fireEvent.press(screen.getByLabelText('Undo'));
-    expect(mockCancelSale).toHaveBeenCalledWith({}, 's1');
+    // A true void: the sale disappears (no "returned" entry), not a return.
+    expect(mockVoidSale).toHaveBeenCalledWith({}, 's1');
+    expect(mockCancelSale).not.toHaveBeenCalled();
+    expect(screen.getByText('Sale undone. Pieces are back in stock.')).toBeTruthy();
+  });
+
+  it('Undo falls back to a return when the sale can no longer be voided', async () => {
+    mockCreateSale.mockReturnValue({ saleId: 's9', billNo: 'B-2026-0009', totalPaise: 650_000, customerId: null });
+    mockVoidSale.mockImplementation(() => {
+      throw new Error('too late');
+    });
+    await renderWithTheme(<Harness params={{ productId: 'p1' }} />);
+    await fireEvent.press(screen.getByText('Sell · ₹6,500'));
+    await fireEvent.press(screen.getByLabelText('Undo'));
+    expect(mockCancelSale).toHaveBeenCalledWith({}, 's9');
     expect(screen.getByText('Sale undone. Pieces are back in stock.')).toBeTruthy();
   });
 
@@ -157,5 +180,23 @@ describe('Sell sheet', () => {
     });
     expect(mockBack).toHaveBeenCalled();
     expect(screen.getByText('Sold 1 · Sozni stole (Red) · ₹6,500')).toBeTruthy();
+  });
+
+  it('shows the seller the profit on this sale, warns below the buying price and hides on the eye', async () => {
+    await renderWithTheme(<Harness params={{ productId: 'p1' }} />);
+    expect(screen.getByTestId('sell-profit-text')).toHaveTextContent('Profit on this sale ₹2,500 (38.5%)');
+    expect(screen.queryByTestId('sell-profit-warning')).toBeNull();
+    await fireEvent.changeText(screen.getByLabelText('Rate for one piece'), '3000');
+    expect(screen.getByTestId('sell-profit-warning')).toHaveTextContent('Below buying price');
+    expect(screen.getByTestId('sell-profit-text')).toHaveTextContent('Profit on this sale −₹1,000 (−33.3%)');
+    await fireEvent.press(screen.getByLabelText('Hide profit figures'));
+    expect(screen.getByTestId('sell-profit-text')).toHaveTextContent('Profit on this sale ••••');
+    expect(screen.queryByTestId('sell-profit-warning')).toBeNull();
+    expect(screen.queryByText(/₹1,000/)).toBeNull();
+  });
+
+  it('says "profit unknown" for a design without a buying price (never 100 %)', async () => {
+    await renderWithTheme(<Harness params={{ productId: 'p2', colourId: 'blue' }} />);
+    expect(screen.getByTestId('sell-profit-text')).toHaveTextContent('Profit unknown: no buying price saved for this design.');
   });
 });

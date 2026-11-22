@@ -12,6 +12,8 @@ import type { Range } from './period';
 export type ReportBasics = {
   ownerWhatsapp: string;
   includeCustomerPhones: boolean;
+  /** Seller's buying prices and profit go into the owner report (setting, default off). */
+  includeProfit: boolean;
   /** "Since last report" range at `now`. */
   sinceLast: Range;
   /** When the last report was sent (null = never). */
@@ -31,7 +33,7 @@ export function shopStart(db: DbOrTx, now: number): number {
 
 export function readReportBasics(db: DbOrTx, now: number): ReportBasics {
   const s = db
-    .select({ owner: shopSettings.ownerWhatsapp, phones: shopSettings.reportIncludesCustomerPhones })
+    .select({ owner: shopSettings.ownerWhatsapp, phones: shopSettings.reportIncludesCustomerPhones, profit: shopSettings.reportIncludesProfit })
     .from(shopSettings)
     .where(eq(shopSettings.id, 1))
     .get();
@@ -39,6 +41,7 @@ export function readReportBasics(db: DbOrTx, now: number): ReportBasics {
   return {
     ownerWhatsapp: s?.owner ?? '',
     includeCustomerPhones: s?.phones ?? true,
+    includeProfit: s?.profit ?? false,
     sinceLast: sinceLastReportPeriod(db, now, shopStart(db, now)),
     lastSentAt: last?.sentAt ?? null,
   };

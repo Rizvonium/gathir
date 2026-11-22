@@ -2,7 +2,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 
-import { useLowStockLevel, useProductDetail, useStockHistory, useToday } from '@/db/hooks';
+import { useLowStockLevel, useProductDetail, useProductProfit, useStockHistory, useToday } from '@/db/hooks';
 import type { Colour } from '@/db/schema';
 
 import { productCardHref, editProductHref, sellHref } from '../logic/links';
@@ -18,16 +18,16 @@ export function useProductDetailScreen(productId: string | undefined) {
   const today = useToday();
   const actions = useStockActions();
   const [reduceTarget, setReduceTarget] = useState<ReduceTarget | null>(null);
-  const [resetKey, setResetKey] = useState(0);
+  // Seller-only buying price & profit: hidden each time the page opens (a customer may be looking).
   const [costVisible, setCostVisible] = useState(false);
+  // "Add to a customer's catalogue" (PLAN §3): picks from the customer book; seller-only screen.
+  const [customerSheetOpen, setCustomerSheetOpen] = useState(false);
+  const profit = useProductProfit(costVisible ? productId : undefined);
 
   const colours = detail?.colours ?? [];
   const id = detail?.product.id;
 
-  const closeReduce = () => {
-    setReduceTarget(null);
-    setResetKey((k) => k + 1);
-  };
+  const closeReduce = () => setReduceTarget(null);
 
   const sell = (colourId?: string) => {
     if (!id) return;
@@ -56,8 +56,11 @@ export function useProductDetailScreen(productId: string | undefined) {
     lowThreshold,
     now: today,
     costVisible,
+    profit,
     toggleCost: () => setCostVisible((v) => !v),
-    resetKey,
+    customerSheetOpen,
+    openCustomerSheet: () => setCustomerSheetOpen(true),
+    closeCustomerSheet: () => setCustomerSheetOpen(false),
     reduceTarget,
     requestReduce: (colour: Colour, qty: number) => setReduceTarget({ colour, qty }),
     setReduceQty: (qty: number) => setReduceTarget((cur) => (cur ? { ...cur, qty } : cur)),

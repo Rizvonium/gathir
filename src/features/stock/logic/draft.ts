@@ -17,8 +17,13 @@ export type DraftColour = {
   name: string;
   hex: string;
   pieces: number;
+  /**
+   * Buying price for this colour only (seller-only), overriding the product's; null/undefined =
+   * same as the product. Optional so drafts kept from before this field still load.
+   */
+  costPaise?: number | null;
   /** Values when the edit started (null for new colours): saves only write real changes. */
-  original: { name: string; hex: string; pieces: number } | null;
+  original: { name: string; hex: string; pieces: number; costPaise?: number | null } | null;
 };
 
 export type ProductDraft = {
@@ -98,7 +103,8 @@ export function draftFromDetail(detail: ProductDetail, now: number = Date.now())
       name: c.name,
       hex: c.hex,
       pieces: c.pieces,
-      original: { name: c.name, hex: c.hex, pieces: c.pieces },
+      costPaise: c.costPaise ?? null,
+      original: { name: c.name, hex: c.hex, pieces: c.pieces, costPaise: c.costPaise ?? null },
     })),
   };
 }
@@ -220,6 +226,34 @@ export function setColourPieces(d: ProductDraft, key: string, pieces: number): P
   const value = Math.max(0, Math.floor(pieces));
   const max = d.oneOfAKind ? 1 : Number.MAX_SAFE_INTEGER;
   return touch(d, { colours: d.colours.map((c) => (c.key === key ? { ...c, pieces: Math.min(max, value) } : c)) });
+}
+
+/** Buying price for one colour (null = same as the design's buying price). Negative or fractional values are ignored. */
+export function setColourCost(d: ProductDraft, key: string, costPaise: number | null): ProductDraft {
+  if (costPaise !== null && (!Number.isInteger(costPaise) || costPaise < 0)) return d;
+  return touch(d, { colours: d.colours.map((c) => (c.key === key ? { ...c, costPaise } : c)) });
+}
+
+/** Colours that have their own buying price. */
+export function coloursWithOwnCost(d: ProductDraft): DraftColour[] {
+  return d.colours.filter((c) => c.costPaise !== null && c.costPaise !== undefined);
+}
+
+/**
+ * Seller-only warnings (never block Save): the rate is below the buying price, for the design
+ * or for a colour with its own price.
+ */
+export type CostWarnings = { rateBelowCost: boolean; coloursBelowCost: string[] };
+
+export function costWarnings(d: ProductDraft): CostWarnings {
+  const rate = d.ratePaise;
+  if (rate === null) return { rateBelowCost: false, coloursBelowCost: [] };
+  return {
+    rateBelowCost: d.costPaise !== null && d.costPaise > rate,
+    coloursBelowCost: coloursWithOwnCost(d)
+      .filter((c) => (c.costPaise ?? 0) > rate)
+      .map((c) => c.key),
+  };
 }
 
 /**

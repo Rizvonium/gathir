@@ -15,7 +15,7 @@ import { hashSeed, patternPalettes, sozniVineSvg } from '../patterns';
 import { pdfDir, pdfLang, pdfT } from '../strings';
 import { htmlDocument } from '../styles/base';
 import { ownerReportCss } from '../styles/report';
-import type { OwnerCustomerDoc, OwnerReportDoc, OwnerSaleDoc } from '../types';
+import type { OwnerCustomerDoc, OwnerProfitDoc, OwnerProfitRowDoc, OwnerReportDoc, OwnerSaleDoc } from '../types';
 import { colourDot, photoOrPlaceholder } from './fragments';
 
 const e = escapeHtml;
@@ -83,12 +83,62 @@ function summarySection(doc: OwnerReportDoc, t: TFunction): string {
   );
 }
 
-function saleBlock(sale: OwnerSaleDoc, t: TFunction): string {
+const pct = (t: TFunction, v: number | null) => (v === null ? '—' : e(t('profit.marginValue', { pct: v.toFixed(1) })));
+
+/**
+ * Buying price and profit. Rendered ONLY when doc.profit is set (the seller turned
+ * "report includes profit" on). Never part of catalogues, bills or product cards.
+ */
+function profitSection(p: OwnerProfitDoc, t: TFunction): string {
+  const stat = (label: string, value: string, cls = '') =>
+    `<div class="stat ${cls}"><div class="label">${e(label)}</div><div class="value num">${value}</div></div>`;
+  const head = (first: string) =>
+    `<thead><tr><th>${e(first)}</th><th class="r">${e(t('profit.colRevenue'))}</th><th class="r">${e(t('profit.colProfit'))}</th><th class="r">${e(t('profit.colMargin'))}</th></tr></thead>`;
+  const rows = (list: OwnerProfitRowDoc[]) =>
+    list
+      .map(
+        (r) =>
+          `<tr><td>${e(r.label ?? t('summary.uncategorised'))}</td><td class="r num">${money(r.revenuePaise)}</td>` +
+          `<td class="r num amt">${money(r.profitPaise)}</td><td class="r num">${pct(t, r.marginPct)}</td></tr>`,
+      )
+      .join('');
+  const notes: string[] = [];
+  if (p.unknownCostItems > 0) notes.push(t('profit.unknown', { count: p.unknownCostItems, n: formatNumber(p.unknownCostItems) }));
+  if (p.stockCostUnknownPieces > 0) {
+    notes.push(t('profit.stockCostUnknown', { count: p.stockCostUnknownPieces, n: formatNumber(p.stockCostUnknownPieces) }));
+  }
+  return (
+    `<section class="profit"><h2>${e(t('profit.title'))}</h2><p class="empty lead">${e(t('profit.lead'))}</p><div class="stats">` +
+    stat(t('profit.profit'), money(p.profitPaise), 'amount') +
+    stat(t('profit.margin'), pct(t, p.marginPct)) +
+    stat(t('profit.knownCost'), money(p.knownCostPaise)) +
+    stat(t('profit.stockAtCost'), money(p.stockValueAtCostPaise)) +
+    `</div>` +
+    (notes.length ? notes.map((n) => `<p class="empty">${e(n)}</p>`).join('') : '') +
+    (p.byCategory.length || p.byProduct.length
+      ? `<div class="split">` +
+        (p.byCategory.length ? `<table>${head(t('profit.byCategory'))}<tbody>${rows(p.byCategory)}</tbody></table>` : '') +
+        (p.byProduct.length ? `<table>${head(t('profit.byProduct'))}<tbody>${rows(p.byProduct)}</tbody></table>` : '') +
+        `</div>`
+      : '') +
+    `</section>`
+  );
+}
+
+function saleProfitLine(sale: OwnerSaleDoc, t: TFunction): string {
+  if (sale.profitPaise === undefined) return '';
+  const text = sale.profitPaise === null ? t('profit.saleProfitUnknown') : t('profit.saleProfit', { amount: formatINR(sale.profitPaise) });
+  return `<span class="profit">${e(text)}</span>`;
+}
+
+function saleBlock(sale: OwnerSaleDoc, t: TFunction, withProfit: boolean): string {
   const rows = sale.items
     .map(
       (i) =>
         `<tr><td class="thumb-cell"><div class="thumb">${photoOrPlaceholder({ dataUri: i.photoDataUri, name: i.productName, seedKey: i.productCode || i.productName })}</div></td>` +
-        `<td><span class="item-name">${e(i.productName)}</span><br><span class="code">${e(i.productCode)}</span></td>` +
+        `<td><span class="item-name">${e(i.productName)}</span><br><span class="code">${e(i.productCode)}</span>` +
+        (withProfit && i.costPaise != null ? `<br><span class="code num">${e(t('profit.itemCost', { amount: formatINR(i.costPaise) }))}</span>` : '') +
+        `</td>` +
         `<td><span class="sw">${colourDot(i.colourHex)}${e(i.colourName)}</span></td>` +
         `<td class="r num">${num(i.qty)}</td><td class="r num">${money(i.ratePaise)}</td><td class="r num amt">${money(i.amountPaise)}</td></tr>`,
     )
@@ -101,6 +151,7 @@ function saleBlock(sale: OwnerSaleDoc, t: TFunction): string {
     `<th class="r">${e(t('sales.colRate'))}</th><th class="r">${e(t('sales.colAmount'))}</th></tr></thead><tbody>${rows}</tbody></table>` +
     `<div class="sale-foot num">` +
     (sale.discountPaise > 0 ? `<span>${e(t('sales.discount', { amount: formatINR(sale.discountPaise) }))}</span>` : '') +
+    (withProfit ? saleProfitLine(sale, t) : '') +
     `<span class="total">${e(t('sales.total', { amount: formatINR(sale.totalPaise) }))}</span></div>` +
     (sale.note.trim() ? `<p class="sale-note">${e(sale.note)}</p>` : '') +
     `</article>`
@@ -108,7 +159,8 @@ function saleBlock(sale: OwnerSaleDoc, t: TFunction): string {
 }
 
 function salesSection(doc: OwnerReportDoc, t: TFunction): string {
-  const body = doc.sales.length ? doc.sales.map((s) => saleBlock(s, t)).join('') : `<p class="empty">${e(t('summary.noSales'))}</p>`;
+  const withProfit = !!doc.profit;
+  const body = doc.sales.length ? doc.sales.map((s) => saleBlock(s, t, withProfit)).join('') : `<p class="empty">${e(t('summary.noSales'))}</p>`;
   return `<section><h2>${e(t('sales.title'))}</h2>${body}</section>`;
 }
 
@@ -201,6 +253,7 @@ export function renderOwnerReportHtml(doc: OwnerReportDoc): string {
   const body =
     masthead(doc, t) +
     summarySection(doc, t) +
+    (doc.profit ? profitSection(doc.profit, t) : '') +
     salesSection(doc, t) +
     customersSection(doc, t) +
     changesSection(doc, t) +

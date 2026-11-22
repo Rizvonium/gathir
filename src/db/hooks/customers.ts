@@ -8,6 +8,7 @@ import {
   type CustomerProfile,
   type SuggestedProduct,
 } from '../repo/customerQueries';
+import { catalogueVersions, listCustomerCatalogue, type CatalogueVersion, type CustomerCatalogueRow } from '../repo/customerCatalogue';
 import { dueFollowUps, type DueFollowUp } from '../repo/events';
 import { useDbQuery } from './useDbQuery';
 import { useToday } from './useToday';
@@ -35,4 +36,14 @@ export function useSuggestedProducts(customerId: string | undefined, limit = 12)
 export function useDueFollowUps(): DueFollowUp[] {
   const today = useToday();
   return useDbQuery((d) => dueFollowUps(d, Date.now()), [today]);
+}
+
+/** A customer's personal catalogue (active items, in their order), or [] without an id. */
+export function useCustomerCatalogue(customerId: string | undefined): CustomerCatalogueRow[] {
+  return useDbQuery((d) => (customerId ? listCustomerCatalogue(d, customerId) : []), [customerId]);
+}
+
+/** Catalogues sent to a customer, newest first, with the rates offered. */
+export function useCatalogueVersions(customerId: string | undefined): CatalogueVersion[] {
+  return useDbQuery((d) => (customerId ? catalogueVersions(d, customerId) : []), [customerId]);
 }

@@ -34,6 +34,12 @@ jest.mock('@/features/catalogue/logic/record', () => ({
   quickAddCustomer: (...a: unknown[]) => mockQuickAdd(...(a as [])),
 }));
 
+const mockAddToCatalogue = jest.fn((..._a: unknown[]) => 'item-1');
+jest.mock('@/db/repo/customerCatalogue', () => ({
+  addToCustomerCatalogue: (...a: unknown[]) => mockAddToCatalogue(...a),
+  removeFromCustomerCatalogue: jest.fn(),
+}));
+
 const product = require('../../catalogue/__tests__/catalogueMocks').product;
 const { router } = jest.requireMock('expo-router') as { router: { replace: jest.Mock; back: jest.Mock; push: jest.Mock } };
 
@@ -151,6 +157,22 @@ describe('Send me this', () => {
     expect(screen.getByText('Small catalogue: 2 shawls they liked')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('sheet-send-card'));
     expect(onSendCard).toHaveBeenCalledWith({ id: 'c1', name: 'Mrs Shah', likedIds: ['p0', 'p1'] }, 'p1');
+  });
+
+  it('saves the shawl to the chosen customer’s catalogue once', async () => {
+    await renderWithTheme(
+      <ToastProvider>
+        <SendMeThisSheet product={product('p1')} visible onClose={jest.fn()} liked={{}} onLiked={jest.fn()} onSendCard={jest.fn()} onSendMini={jest.fn()} />
+      </ToastProvider>,
+    );
+    await fireEvent.changeText(screen.getByLabelText('Find a customer'), 'sh');
+    await fireEvent.press(screen.getByText('Mrs Shah'));
+    expect(mockAddToCatalogue).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByText('Save to Mrs Shah’s catalogue'));
+    expect(mockAddToCatalogue).toHaveBeenCalledWith({}, { customerId: 'c1', productId: 'p1' });
+    expect(screen.getAllByText('Saved to Mrs Shah’s catalogue').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('sheet-save-catalogue')).toBeDisabled();
+    expect(screen.getByText('In Mrs Shah’s catalogue')).toBeTruthy();
   });
 
   it('adds a new customer with just a number', async () => {

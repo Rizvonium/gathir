@@ -1,0 +1,75 @@
+{
+  "title": "Profit",
+  "subtitle": "Only you see this",
+  "back": "Back",
+  "hide": "Hide profit figures",
+  "show": "Show profit figures",
+  "hidden": "Hidden",
+  "label": "Profit",
+  "margin": "{{pct}} margin",
+  "unknown": "Profit unknown",
+  "loss": "Loss",
+  "lossA11y": "Loss of {{amount}}",
+  "addCost": "Add buying price",
+  "addCostHelp": "New sales will count it. Past sales keep the price they had.",
+  "unknownItems_one": "{{count}} item had no buying price, so its profit is not counted.",
+  "unknownItems_other": "{{count}} items had no buying price, so their profit is not counted.",
+  "unknownAll_one": "No buying price for this item, so profit is unknown.",
+  "unknownAll_other": "No buying price for these {{count}} items, so profit is unknown.",
+  "unknownShort_one": "{{count}} item without buying price",
+  "unknownShort_other": "{{count}} items without buying price",
+  "open": "See profit",
+  "openA11y": "Open profit details",
+  "period": {
+    "label": "Period",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "week": "This week",
+    "month": "This month",
+    "custom": "Choose dates",
+    "customHint": "Tap a day, then tap another day to make a range.",
+    "range": "{{from}} – {{to}}"
+  },
+  "totals": {
+    "profit": "Profit",
+    "revenue": "Sales",
+    "cost": "Bought for",
+    "pieces": "Pieces",
+    "showMissing": "Show designs without buying price"
+  },
+  "breakdown": {
+    "title": "Where the profit came from",
+    "day": "By day",
+    "product": "By design",
+    "category": "By category",
+    "customer": "By customer",
+    "missingOnly": "Without buying price",
+    "noCategory": "No category",
+    "walkIn": "Walk-in customers",
+    "unnamed": "Design",
+    "sub": "{{amount}} · {{pieces}}",
+    "pieces_one": "{{count}} piece",
+    "pieces_other": "{{count}} pieces",
+    "addCostFor": "Add buying price for {{name}}",
+    "none": "Nothing to show here."
+  },
+  "empty": {
+    "title": "No sales in this period",
+    "body": "Profit shows up here once you sell. Try a longer period."
+  },
+  "sell": {
+    "line": "Profit on this sale",
+    "lineA11y": "Profit on this sale: {{amount}}{{margin}}",
+    "belowCost": "Below buying price",
+    "belowCostHelp": "This rate is less than what you paid.",
+    "unknown": "Profit unknown: no buying price saved for this design.",
+    "partial_one": "{{count}} item has no buying price and is not counted.",
+    "partial_other": "{{count}} items have no buying price and are not counted."
+  },
+  "sale": {
+    "profit": "Profit",
+    "itemProfit": "Bought at {{cost}} · profit {{profit}}",
+    "itemUnknown": "No buying price saved · profit unknown",
+    "returned": "Returned: no profit counted"
+  }
+}

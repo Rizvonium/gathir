@@ -19,6 +19,7 @@ import report from './en/report.json';
 import backup from './en/backup.json';
 import settings from './en/settings.json';
 import lock from './en/lock.json';
+import profit from './en/profit.json';
 
 export const resources = {
   en: {
@@ -35,6 +36,7 @@ export const resources = {
     backup,
     settings,
     lock,
+    profit,
   },
 } as const;
 

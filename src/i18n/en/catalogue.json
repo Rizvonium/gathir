@@ -17,7 +17,8 @@
       "pieces_one": "{{n}} piece",
       "pieces_other": "{{n}} pieces",
       "soldOut": "Sold out",
-      "colourCount": "{{name}} {{n}}"
+      "colourCount": "{{name}} {{n}}",
+      "specialPrice": "Special price for you"
     },
     "order": {
       "title": "How to order",
@@ -92,7 +93,14 @@
     "pickedA11y": "Picked",
     "emptyTitle": "No shawls in stock yet",
     "emptyBody": "Add a shawl with its photo, then send your catalogue.",
-    "addProduct": "Add a shawl"
+    "addProduct": "Add a shawl",
+    "theirs_one": "{{name}}’s catalogue ({{count}} piece)",
+    "theirs_other": "{{name}}’s catalogue ({{count}} pieces)",
+    "theirsHint": "Their pieces in their order, at their special rates, prepared for {{name}}.",
+    "theirsEmpty": "{{name}}’s catalogue is empty. Add pieces on their page first.",
+    "theirsSoldOut_one": "{{count}} piece is sold out and is left out of the PDF. You can include it in the next step.",
+    "theirsSoldOut_other": "{{count}} pieces are sold out and are left out of the PDF. You can include them in the next step.",
+    "theirsTitle": "Chosen for you"
   },
   "options": {
     "heading": "How should it look?",

@@ -57,11 +57,11 @@ export function useReportSend(p: ReportPeriod, { fromPreview = false }: { fromPr
 
   /** Re-uses a recorded-but-unsent PDF for the same content, else makes and records a new one. */
   const pdfFor = async (): Promise<PendingSend> => {
-    const pendingKey = reportKey(p.range, p.includePhones, salesStamp(p.summary));
+    const pendingKey = reportKey(p.range, p.includePhones, salesStamp(p.summary), p.includeProfit);
     const state = useReportFlow.getState();
     if (state.pending?.key === pendingKey && new File(state.pending.pdfUri).exists) return state.pending;
 
-    const previewKey = reportKey(p.range, p.includePhones, version);
+    const previewKey = reportKey(p.range, p.includePhones, version, p.includeProfit);
     const prepared = state.prepared?.key === previewKey ? state.prepared : await prepareOwnerReport(p.range, p.includePhones, previewKey, p.now);
     const at = Date.now();
     const pdf = await renderPdf(prepared.html, { fileBaseName: ownerReportFileBaseName(prepared.data.shop.shopName, prepared.data.reportNumber, at) });

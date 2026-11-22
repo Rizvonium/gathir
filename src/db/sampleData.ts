@@ -12,7 +12,7 @@ import { createCustomer, eraseCustomers } from './repo/customerWrites';
 import { addFollowUp, addNote } from './repo/events';
 import { createProduct, type ColourInput } from './repo/productWrites';
 import { cancelSale, createSale } from './repo/saleWrites';
-import { categories, colours, customers, photos, products, saleItems, sales, stockMoves, type CustomerTag, type PaymentMethod } from './schema';
+import { categories, colours, customerCatalogueItems, customers, photos, products, saleItems, sales, stockMoves, type CustomerTag, type PaymentMethod } from './schema';
 import { applyMove } from './stock';
 import type { DbOrTx } from './types';
 
@@ -207,6 +207,7 @@ export function clearSampleData(db: DbOrTx): { products: number; sales: number; 
     eraseCustomers(tx, customerIds);
     if (productIds.length > 0) {
       tx.delete(stockMoves).where(inArray(stockMoves.productId, productIds)).run();
+      tx.delete(customerCatalogueItems).where(inArray(customerCatalogueItems.productId, productIds)).run();
       tx.delete(colours).where(inArray(colours.productId, productIds)).run();
       tx.delete(photos).where(inArray(photos.productId, productIds)).run();
       tx.delete(products).where(inArray(products.id, productIds)).run();

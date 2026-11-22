@@ -1,4 +1,5 @@
 /** Sales tab logic, pure: period ranges, day groups with totals, summary, item labels. */
+import { computeSaleProfit, marginPct, type ProfitTotals } from '@/db/repo/profitMath';
 import type { SaleListRow } from '@/db/repo/saleQueries';
 import type { PaymentMethod } from '@/db/schema';
 import { addDays, endOfDay, startOfMonth, startOfWeek } from '@/lib/dates';
@@ -35,6 +36,29 @@ export function totalsOf(rows: readonly SaleListRow[]): SalesTotals {
     count += 1;
   }
   return { pieces, amountPaise, count };
+}
+
+/**
+ * Seller-only profit over the listed rows (so it follows the payment filter too). Returned sales
+ * do not count; items without a buying price are left out of the profit and counted in
+ * `unknownCostItems`, never treated as 100 % profit.
+ */
+export function profitOfRows(rows: readonly Pick<SaleListRow, 'cancelledAt' | 'discountPaise' | 'items'>[]): ProfitTotals {
+  const t = { revenuePaise: 0, knownRevenuePaise: 0, knownCostPaise: 0, profitPaise: 0, unknownCostItems: 0, pieces: 0 };
+  for (const r of rows) {
+    if (r.cancelledAt !== null) continue;
+    const p = computeSaleProfit({
+      discountPaise: r.discountPaise,
+      items: r.items.map((i) => ({ qty: i.qty, ratePaise: i.ratePaise, costPaise: i.costPaiseSnapshot ?? null })),
+    });
+    t.revenuePaise += p.revenuePaise;
+    t.knownRevenuePaise += p.knownRevenuePaise;
+    t.knownCostPaise += p.knownCostPaise;
+    t.profitPaise += p.profitPaise;
+    t.unknownCostItems += p.unknownCostItems;
+    t.pieces += p.pieces;
+  }
+  return { ...t, marginPct: marginPct(t.profitPaise, t.knownRevenuePaise) };
 }
 
 export type SalesListItem =

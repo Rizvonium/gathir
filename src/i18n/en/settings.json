@@ -59,7 +59,9 @@
     "sampleOff": "Try the app with example shawls",
     "version": "Gathir {{version}}",
     "madeFor": "Made for Kashmiri artisans",
-    "offline": "Everything stays on this phone. No account, no internet needed."
+    "offline": "Everything stays on this phone. No account, no internet needed.",
+    "reportProfit": "Put buying price & profit in reports",
+    "reportProfitHelp": "Off: the owner sees sales but not what you paid."
   },
   "shop": {
     "title": "Shop profile",

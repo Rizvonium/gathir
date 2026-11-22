@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { StyleSheet, View, type AccessibilityActionEvent, type StyleProp, type ViewStyle } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -11,7 +11,12 @@ import { RollingNumber } from './RollingNumber';
 import { useHoldRepeat } from './useHoldRepeat';
 
 export type StepperProps = {
+  /**
+   * Controlled value: the stepper always shows it, and every tap steps from it. To reset the
+   * stepper (e.g. after a cancelled "−"), just keep or set `value`; no remount (`key`) needed.
+   */
   value: number;
+  /** Called with value ± step. The parent decides whether `value` follows. */
   onChange: (next: number) => void;
   min?: number;
   max?: number;
@@ -45,28 +50,36 @@ export function Stepper({
 }: StepperProps) {
   const { colors, space, radius } = useTheme();
   const { t } = useTranslation('ui');
-  // Latest value without waiting for the parent re-render (hold-repeat ticks faster than renders).
-  const current = useRef(value);
-  useEffect(() => {
-    current.current = value;
-  }, [value]);
+  // Only a hold-to-repeat runs ahead of the parent's renders: it counts from `value` at the start
+  // of the hold. Taps and TalkBack actions always step from the controlled `value`.
+  const holding = useRef(value);
 
-  /** Applies one step; returns false when the bound blocks further steps. */
-  const stepBy = (direction: 1 | -1): boolean => {
-    const next = clamp(current.current + direction * step, min, max);
-    if (next === current.current) return false;
-    current.current = next;
+  /** One step from `base`; returns the new value, or null when a bound blocks it. */
+  const stepFrom = (base: number, direction: 1 | -1): number | null => {
+    const next = clamp(base + direction * step, min, max);
+    if (next === base) return null;
     playHaptic('selection');
     onChange(next);
+    return next;
+  };
+
+  const holdTick = (direction: 1 | -1): boolean => {
+    const next = stepFrom(holding.current, direction);
+    if (next === null) return false;
+    holding.current = next;
     return next !== (direction > 0 ? max : min);
   };
 
-  const inc = useHoldRepeat(() => stepBy(1));
-  const dec = useHoldRepeat(() => stepBy(-1));
+  const inc = useHoldRepeat(() => holdTick(1));
+  const dec = useHoldRepeat(() => holdTick(-1));
+  const startHold = (direction: 1 | -1) => {
+    holding.current = value;
+    (direction > 0 ? inc : dec).start();
+  };
 
   const onAccessibilityAction = (e: AccessibilityActionEvent) => {
-    if (e.nativeEvent.actionName === 'increment') stepBy(1);
-    if (e.nativeEvent.actionName === 'decrement') stepBy(-1);
+    if (e.nativeEvent.actionName === 'increment') stepFrom(value, 1);
+    if (e.nativeEvent.actionName === 'decrement') stepFrom(value, -1);
   };
 
   const button = size === 'lg' ? 56 : touchTarget;
@@ -82,8 +95,8 @@ export function Stepper({
         testID={testID ? `${testID}-${kind}` : undefined}
         accessibilityLabel={t(isInc ? 'stepper.increase' : 'stepper.decrease', { label: accessibilityLabel })}
         disabled={blocked}
-        onPress={() => stepBy(isInc ? 1 : -1)}
-        onLongPress={repeat.start}
+        onPress={() => stepFrom(value, isInc ? 1 : -1)}
+        onLongPress={() => startHold(isInc ? 1 : -1)}
         onPressOut={repeat.stop}
         delayLongPress={350}
         style={[

@@ -3,6 +3,7 @@ import 'react-native-gesture-handler/jestSetup';
 import { fireEvent, screen } from '@testing-library/react-native';
 
 import type { HomeSummary } from '@/db/repo/dashboard';
+import { useProfitPrivacy } from '@/features/profit/privacy';
 import { renderWithTheme } from '@/ui/components/__tests__/renderWithTheme';
 
 import { buildHomeModel } from '../homeLogic';
@@ -37,6 +38,11 @@ const summary = (over: Partial<HomeSummary> = {}): HomeSummary => ({
   totalPieces: 128,
   designs: 24,
   stockValuePaise: 42_000_000,
+  stockValueAtCostPaise: 26_000_000,
+  stockCostUnknownPieces: 0,
+  todayProfitPaise: 0,
+  todayMarginPct: null,
+  todayProfitUnknownItems: 0,
   todayPieces: 3,
   todayAmountPaise: 1_950_000,
   yesterdayAmountPaise: 650_000,
@@ -67,7 +73,7 @@ describe('HomeView', () => {
     await renderWithTheme(<HomeView model={buildHomeModel(summary(), extras, 1, NOW)} actions={a} />);
     expect(screen.getByText('Good afternoon')).toBeTruthy();
     expect(screen.getByTestId('home-shop-name').props.children).toBe('Valley Pashmina House');
-    expect(screen.getByLabelText('Stock: 128 pieces in 24 designs, worth ₹4,20,000. Open stock.')).toBeTruthy();
+    expect(screen.getByLabelText('Stock: 128 pieces in 24 designs, worth ₹4,20,000. At buying price ₹2,60,000. Open stock.')).toBeTruthy();
     expect(screen.getByTestId('home-today-compare', { includeHiddenElements: true }).props.children).toBe('₹13,000 more than yesterday');
     expect(screen.getByTestId('home-report-status').props.children).toBe('Last sent 3 days ago');
     expect(screen.getByText('7 new sales')).toBeTruthy();
@@ -137,5 +143,29 @@ describe('HomeView', () => {
   it('a quiet day reads "No sales yet today"', async () => {
     await renderWithTheme(<HomeView model={buildHomeModel(summary({ todayPieces: 0, todayAmountPaise: 0, yesterdayAmountPaise: 0 }), extras, 1, NOW)} actions={actions()} />);
     expect(screen.getByTestId('home-today-compare', { includeHiddenElements: true }).props.children).toBe('No sales yet today');
+  });
+
+  it("Today's profit and stock at buying price are seller-only: shown, linked, and hidden by the eye", async () => {
+    useProfitPrivacy.getState().setHidden(false);
+    const s = summary({ todayProfitPaise: 750_000, todayMarginPct: 38.5, todayProfitUnknownItems: 1, stockCostUnknownPieces: 4 });
+    await renderWithTheme(<HomeView model={buildHomeModel(s, extras, 1, NOW)} actions={actions()} />);
+    expect(screen.getByLabelText("Today's profit: ₹7,500, 38.5% margin. 1 item without buying price is not counted")).toBeTruthy();
+    expect(screen.getByLabelText('Stock: 128 pieces in 24 designs, worth ₹4,20,000. At buying price ₹2,60,000. 4 pieces have no buying price Open stock.')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('home-today-profit'));
+    expect(mockPush).toHaveBeenCalledWith('/profit');
+    await fireEvent.press(screen.getByTestId('home-today-sales'));
+    expect(mockNavigate).toHaveBeenCalledWith('/sales');
+    await fireEvent.press(screen.getByLabelText('Hide profit figures'));
+    expect(screen.getByLabelText("Today's profit: Hidden")).toBeTruthy();
+    expect(screen.getByLabelText('Stock: 128 pieces in 24 designs, worth ₹4,20,000. Buying price hidden. Open stock.')).toBeTruthy();
+    useProfitPrivacy.getState().setHidden(false);
+  });
+
+  it('no sales today: the profit row still leads to past profit, without a made-up figure', async () => {
+    await renderWithTheme(<HomeView model={buildHomeModel(summary({ todayPieces: 0, todayAmountPaise: 0 }), extras, 1, NOW)} actions={actions()} />);
+    expect(screen.getByLabelText("Today's profit: No sales yet today. See profit for the week and month.")).toBeTruthy();
+    expect(screen.queryByTestId('home-today-profit-amount')).toBeNull();
+    await fireEvent.press(screen.getByTestId('home-today-profit'));
+    expect(mockPush).toHaveBeenCalledWith('/profit');
   });
 });

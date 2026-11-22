@@ -4,11 +4,12 @@ import { fireEvent, screen } from '@testing-library/react-native';
 
 import type { SaleListRow } from '@/db/repo/saleQueries';
 import type { SaleItem } from '@/db/schema';
+import { useProfitPrivacy } from '@/features/profit/privacy';
 import { renderWithTheme } from '@/ui/components/__tests__/renderWithTheme';
 
 import { SalesView } from '../components/SalesScreen';
 import type { SalesListModel } from '../hooks/useSalesList';
-import { groupSalesByDay, totalsOf } from '../logic/salesList';
+import { groupSalesByDay, profitOfRows, totalsOf } from '../logic/salesList';
 
 jest.mock('react-native-keyboard-controller', () => require('react-native-keyboard-controller/jest'));
 jest.mock('react-native-safe-area-context', () => require('react-native-safe-area-context/jest/mock').default);
@@ -47,6 +48,7 @@ const item = (over: Partial<SaleItem> = {}): SaleItem => ({
   photoSnapshotName: 'p1_t.jpg',
   qty: 1,
   ratePaise: 650_000,
+  costPaiseSnapshot: null,
   ...over,
 });
 
@@ -65,6 +67,9 @@ const sale = (over: Partial<SaleListRow> = {}): SaleListRow => ({
   pieces: 1,
   itemCount: 1,
   items: [item()],
+  profitPaise: null,
+  knownProfitPaise: 0,
+  unknownCostItems: 1,
   ...over,
 });
 
@@ -130,5 +135,28 @@ describe('SalesView', () => {
     expect(screen.getByText('Nothing sold today yet')).toBeTruthy();
     await fireEvent.press(screen.getByText('Show all sales'));
     expect(a.setPeriod).toHaveBeenCalledWith('all');
+  });
+
+  it('shows the period profit and margin beside the takings, links to Profit, and hides on the eye', async () => {
+    useProfitPrivacy.getState().setHidden(false);
+    const rows = [
+      sale({ items: [item({ costPaiseSnapshot: 400_000 })] }),
+      sale({ id: 's2', totalPaise: 500_000, items: [item({ id: 'i2', ratePaise: 500_000, costPaiseSnapshot: null })] }),
+    ];
+    await renderWithTheme(<SalesView model={model(rows, { profit: profitOfRows(rows) })} actions={actions()} />);
+    expect(screen.getByLabelText('Profit: ₹2,500, 38.5% margin. 1 item without buying price')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('sales-profit'));
+    expect(mockPush).toHaveBeenCalledWith('/profit');
+    await fireEvent.press(screen.getByTestId('sales-open-profit'));
+    expect(mockPush).toHaveBeenCalledTimes(2);
+    await fireEvent.press(screen.getByLabelText('Hide profit figures'));
+    expect(screen.getByLabelText('Profit: Hidden')).toBeTruthy();
+    useProfitPrivacy.getState().setHidden(false);
+  });
+
+  it('sales with no buying price at all read "Profit unknown", not 100 %', async () => {
+    const rows = [sale()];
+    await renderWithTheme(<SalesView model={model(rows, { profit: profitOfRows(rows) })} actions={actions()} />);
+    expect(screen.getByTestId('sales-profit-unknown')).toHaveTextContent('Profit unknown');
   });
 });

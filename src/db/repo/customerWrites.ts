@@ -4,7 +4,7 @@ import { and, eq, inArray, isNotNull, isNull, lt, ne } from 'drizzle-orm';
 import { newId } from '@/lib/ids';
 import { toE164 } from '@/lib/phone';
 
-import { customerEvents, customers, reports, sales, type Customer, type CustomerLikes, type CustomerTag } from '../schema';
+import { customerCatalogueItems, customerEvents, customers, reports, sales, type Customer, type CustomerLikes, type CustomerTag } from '../schema';
 import type { DbOrTx } from '../types';
 import { chunk, DAY_MS, RECENTLY_DELETED_DAYS } from './constants';
 import { DuplicateCustomerError, RepoError, requireText } from './errors';
@@ -179,5 +179,6 @@ export function eraseCustomers(tx: DbOrTx, ids: string[]): void {
     .run();
   tx.update(reports).set({ customerId: null }).where(inArray(reports.customerId, ids)).run();
   tx.delete(customerEvents).where(inArray(customerEvents.customerId, ids)).run();
+  tx.delete(customerCatalogueItems).where(inArray(customerCatalogueItems.customerId, ids)).run();
   tx.delete(customers).where(inArray(customers.id, ids)).run();
 }

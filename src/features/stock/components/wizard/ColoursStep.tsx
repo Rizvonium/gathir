@@ -4,12 +4,24 @@ import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { sampleColourFromImage } from '@/lib/photos';
-import { AppText, Button, ColourSwatch, Divider, IconButton, Stepper, TextField } from '@/ui/components';
+import { formatINR } from '@/lib/money';
+import { AppText, Button, ColourSwatch, Divider, IconButton, MoneyInput, Stepper, TextField } from '@/ui/components';
 import { useTheme } from '@/ui/theme';
 import { shawlSwatches } from '@/ui/tokens';
 
 import type { ProductWizard } from '../../hooks/useProductWizard';
-import { addColour, findColour, removeColour, setColourPieces, setOneOfAKind, toggleSwatch, totalDraftPieces } from '../../logic/draft';
+import {
+  addColour,
+  costWarnings,
+  findColour,
+  removeColour,
+  setColourCost,
+  setColourPieces,
+  setOneOfAKind,
+  toggleSwatch,
+  totalDraftPieces,
+  type DraftColour,
+} from '../../logic/draft';
 
 /** Neutral swatch for a typed colour when the cover photo cannot be sampled. */
 const FALLBACK_HEX = shawlSwatches.find((s) => s.key === 'grey')?.hex ?? '#8E8E93';
@@ -21,6 +33,9 @@ export function ColoursStep({ w }: { w: ProductWizard }) {
   const d = w.draft;
   const [custom, setCustom] = useState('');
   const [photoHex, setPhotoHex] = useState<string | null>(null);
+  // Colours whose "Different buying price?" field is open (open from the start when one is set).
+  const [costOpen, setCostOpen] = useState<Set<string>>(() => new Set(d.colours.filter((c) => c.costPaise != null).map((c) => c.key)));
+  const warn = costWarnings(d);
   const cover = d.photos[0]?.thumbName;
 
   // "Photo colour": a typed colour gets the cover photo's main colour as its swatch.
@@ -126,6 +141,24 @@ export function ColoursStep({ w }: { w: ProductWizard }) {
               )}
               <IconButton icon="close" accessibilityLabel={t('wizard.colours.remove', { name: c.name })} onPress={() => w.update((cur) => removeColour(cur, c.key))} />
             </View>
+            {!d.oneOfAKind ? (
+              <ColourCost
+                colour={c}
+                open={costOpen.has(c.key)}
+                designCost={d.costPaise}
+                belowRate={warn.coloursBelowCost.includes(c.key)}
+                onOpen={() => setCostOpen((cur) => new Set(cur).add(c.key))}
+                onClose={() => {
+                  setCostOpen((cur) => {
+                    const next = new Set(cur);
+                    next.delete(c.key);
+                    return next;
+                  });
+                  w.update((cur) => setColourCost(cur, c.key, null));
+                }}
+                onChange={(paise) => w.update((cur) => setColourCost(cur, c.key, paise))}
+              />
+            ) : null}
           </View>
         ))}
         {d.colours.length > 0 ? (
@@ -138,7 +171,60 @@ export function ColoursStep({ w }: { w: ProductWizard }) {
   );
 }
 
+/**
+ * Folded "Different buying price for Red?" link under a colour (e.g. a newer batch cost more).
+ * Seller-only. Closing it goes back to the design's buying price.
+ */
+function ColourCost({
+  colour,
+  open,
+  designCost,
+  belowRate,
+  onOpen,
+  onClose,
+  onChange,
+}: {
+  colour: DraftColour;
+  open: boolean;
+  designCost: number | null;
+  belowRate: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onChange: (paise: number | null) => void;
+}) {
+  const { t } = useTranslation('stock');
+  const { space } = useTheme();
+  if (!open) {
+    return (
+      <Button
+        testID={`wizard-colour-cost-open-${colour.name}`}
+        label={t('wizard.colours.costOpen', { name: colour.name })}
+        icon="sell"
+        variant="ghost"
+        size="sm"
+        onPress={onOpen}
+        style={styles.start}
+      />
+    );
+  }
+  const same = designCost !== null ? t('wizard.colours.costSame', { cost: formatINR(designCost) }) : t('wizard.colours.costSameNone');
+  return (
+    <View style={[styles.row, { gap: space.sm, alignItems: 'flex-start', paddingBottom: space.sm }]}>
+      <MoneyInput
+        testID={`wizard-colour-cost-${colour.name}`}
+        label={t('wizard.colours.costLabel', { name: colour.name })}
+        value={colour.costPaise ?? null}
+        onChange={onChange}
+        helper={belowRate ? t('wizard.details.costAboveRate') : same}
+        style={styles.flex}
+      />
+      <IconButton icon="undo" accessibilityLabel={t('wizard.colours.costReset', { name: colour.name })} onPress={onClose} testID={`wizard-colour-cost-reset-${colour.name}`} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  start: { alignSelf: 'flex-start' },
   row: { flexDirection: 'row', alignItems: 'center' },
   flex: { flex: 1 },
   swatches: { flexDirection: 'row', flexWrap: 'wrap' },

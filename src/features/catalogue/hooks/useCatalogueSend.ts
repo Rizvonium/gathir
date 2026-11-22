@@ -12,6 +12,7 @@ import { catalogueFileBaseName, catalogueMessage, renderCatalogueHtml, renderPdf
 import { shareFileToWhatsApp } from '@/share';
 import { playHaptic, useToast } from '@/ui/components';
 
+import { isPersonalData, sentSnapshot } from '../logic/flowData';
 import { catalogueParts, partProductIds } from '../logic/parts';
 import { isDelivered, recipientCustomerId, recipientName, recipientPhone, shareProblemKey, type Recipient } from '../logic/recipient';
 import { recordCatalogueSent } from '../logic/record';
@@ -75,9 +76,11 @@ export function useCatalogueSend() {
     if (result.status === 'fallback_shared') toast.show({ message: t('send.fallback') });
     if (partIndex === 0) {
       try {
+        const sentIds = partProductIds(docs);
         recordCatalogueSent(db, {
           customerId: recipientCustomerId(recipient),
-          productIds: partProductIds(docs),
+          productIds: sentIds,
+          snapshot: { items: sentSnapshot(prepared.data, sentIds), personal: isPersonalData(prepared.data) },
           fileName: `${fileBaseName}.pdf`,
           title: doc.title,
           parts: docs.length,

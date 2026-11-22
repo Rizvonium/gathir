@@ -4,6 +4,7 @@ import { asc, getTableName } from 'drizzle-orm';
 import {
   categories,
   colours,
+  customerCatalogueItems,
   customerEvents,
   customers,
   photos,
@@ -19,10 +20,28 @@ import { chunk } from './constants';
 import { RepoError } from './errors';
 
 export const BACKUP_FORMAT = 'gathir-backup';
-export const BACKUP_VERSION = 1;
+/**
+ * data.json format version. 1 = first release; 2 adds customer_catalogue_items, colours.costPaise,
+ * sale_items.costPaiseSnapshot and shop_settings.reportIncludesProfit. Older backups restore with
+ * defaults for what they lack (nullable columns → null, others → their schema default).
+ */
+export const BACKUP_VERSION = 2;
 
 /** Tables in foreign-key-safe insert order (delete in reverse). */
-const TABLES = [shopSettings, categories, products, colours, photos, stockMoves, customers, customerEvents, sales, saleItems, reports] as const;
+const TABLES = [
+  shopSettings,
+  categories,
+  products,
+  colours,
+  photos,
+  stockMoves,
+  customers,
+  customerEvents,
+  customerCatalogueItems,
+  sales,
+  saleItems,
+  reports,
+] as const;
 
 type Row = Record<string, unknown>;
 export type BackupData = {
@@ -62,7 +81,8 @@ export function importAllTables(db: DbOrTx, data: unknown): void {
     for (const t of TABLES) {
       const rows = data.tables[getTableName(t)] ?? [];
       for (const part of chunk(rows, 50)) {
-        // Rows come from exportAllTables of the same schema version; drizzle maps them by column key.
+        // Rows come from exportAllTables of this or an older version; drizzle maps them by column key
+        // and fills missing keys with the column default (or null), so older backups still restore.
         tx.insert(t)
           .values(part as (typeof t.$inferInsert)[])
           .run();

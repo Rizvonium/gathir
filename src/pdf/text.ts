@@ -12,7 +12,7 @@ import type { BillDoc, CatalogueDoc, OwnerReportDoc } from './types';
 const plural = (count: number) => ({ count, n: formatNumber(count) });
 
 /**
- * The owner report message, exactly as PLAN §7:
+ * The owner report message, exactly as PLAN §7 (plus a "Profit:" line only when the report includes profit):
  * Gathir report — <Shop> (<Seller>) / <From> – <To> / Sold: … · ₹… / In stock: … / PDF attached.
  */
 export function ownerReportMessage(doc: OwnerReportDoc): string {
@@ -23,6 +23,14 @@ export function ownerReportMessage(doc: OwnerReportDoc): string {
     seller ? t('report.title', { shop, seller }) : t('report.titleNoSeller', { shop }),
     t('report.period', { from: formatDate(doc.period.from), to: formatDate(doc.period.to) }),
     t('report.sold', { pieces: t('report.pieces', plural(doc.summary.pieces)), amount: formatINR(doc.summary.amountPaise) }),
+    // Profit only when the seller chose to include it in owner reports.
+    ...(doc.profit
+      ? [
+          doc.profit.marginPct === null
+            ? t('report.profitNoMargin', { amount: formatINR(doc.profit.profitPaise) })
+            : t('report.profit', { amount: formatINR(doc.profit.profitPaise), margin: `${doc.profit.marginPct.toFixed(1)}%` }),
+        ]
+      : []),
     t('report.inStock', {
       pieces: t('report.pieces', plural(doc.totals.totalPieces)),
       designs: t('report.designs', plural(doc.totals.designs)),

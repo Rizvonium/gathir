@@ -6,7 +6,8 @@ import type { DbOrTx } from '../types';
 import { stockStatus, type StockStatus } from './constants';
 import { displayNote } from './moveNotes';
 import { loadLiveProducts } from './productQueries';
-import { itemsBySale, summarise, type DateRange, type SalesSummary } from './saleQueries';
+import { profitBreakdowns, stockValues, type ProfitGroupRow, type ProfitSummary } from './profit';
+import { itemsBySale, profitOfSale, summarise, type DateRange, type SalesSummary } from './saleQueries';
 import { getSettings, peekNextReportNumber } from './settings';
 import { getShopInfo, type ShopInfo } from './shopInfo';
 
@@ -21,6 +22,8 @@ export type OwnerReportSale = {
   totalPaise: number;
   note: string;
   customer: OwnerReportCustomer | null;
+  /** Only when the report includes profit: the bill's profit, or null when a buying price is unknown. */
+  profitPaise?: number | null;
   items: {
     productName: string;
     productCode: string;
@@ -31,7 +34,25 @@ export type OwnerReportSale = {
     amountPaise: number;
     /** Thumbnail file name copied at sale time (relative to <documents>/photos/), or null. */
     photoName: string | null;
+    /** Only when the report includes profit: buying price per piece at sale time (null = unknown). */
+    costPaise?: number | null;
+    /** Only when the report includes profit: this line's profit after its share of the discount. */
+    profitPaise?: number | null;
   }[];
+};
+
+/** Profit keys of SalesSummary: kept out of the report unless the seller turned profit on. */
+type SummaryProfitKeys = 'profitPaise' | 'knownCostPaise' | 'knownRevenuePaise' | 'marginPct' | 'unknownCostItems';
+export type OwnerReportSummary = Omit<SalesSummary, SummaryProfitKeys>;
+
+/** Seller's buying prices and profit (settings.reportIncludesProfit). */
+export type OwnerReportProfit = {
+  summary: ProfitSummary;
+  byProduct: ProfitGroupRow[];
+  byCategory: ProfitGroupRow[];
+  /** Live stock at buying price, and pieces without a buying price. */
+  stockValueAtCostPaise: number;
+  stockCostUnknownPieces: number;
 };
 
 export type OwnerReportStockChange = {
@@ -65,7 +86,11 @@ export type OwnerReportData = {
   /** Number this report will get when createReportRecord is called. */
   reportNumber: number;
   includeCustomerPhones: boolean;
-  summary: SalesSummary;
+  /** settings.reportIncludesProfit at build time. When false, no cost or profit is anywhere in the data. */
+  includeProfit: boolean;
+  summary: OwnerReportSummary;
+  /** Null unless includeProfit. */
+  profit: OwnerReportProfit | null;
   sales: OwnerReportSale[];
   /** Sales in the period that were later returned/cancelled. */
   returns: { saleId: string; billNo: string; createdAt: number; cancelledAt: number; totalPaise: number }[];
@@ -88,6 +113,7 @@ export function buildOwnerReportData(
   const { from, to, includeCustomerPhones } = opts;
   const phone = (p: string | null) => (includeCustomerPhones ? p : null);
   const settings = getSettings(db);
+  const includeProfit = settings.reportIncludesProfit;
   const custById = new Map(
     db
       .select()
@@ -112,26 +138,32 @@ export function buildOwnerReportData(
     db,
     live.map((s) => s.id),
   );
-  const reportSales: OwnerReportSale[] = live.map((s) => ({
-    id: s.id,
-    billNo: s.billNo,
-    createdAt: s.createdAt,
-    payment: s.payment,
-    discountPaise: s.discountPaise,
-    totalPaise: s.totalPaise,
-    note: s.note,
-    customer: toCustomer(s.customerId, s.customerNameSnapshot, s.customerPhoneSnapshot),
-    items: (items.get(s.id) ?? []).map((i) => ({
-      productName: i.productNameSnapshot,
-      productCode: i.productCodeSnapshot,
-      colourName: i.colourNameSnapshot,
-      colourHex: i.colourHexSnapshot,
-      qty: i.qty,
-      ratePaise: i.ratePaise,
-      amountPaise: i.qty * i.ratePaise,
-      photoName: i.photoSnapshotName,
-    })),
-  }));
+  const reportSales: OwnerReportSale[] = live.map((s) => {
+    const its = items.get(s.id) ?? [];
+    const profit = includeProfit ? profitOfSale(s, its) : null;
+    return {
+      id: s.id,
+      billNo: s.billNo,
+      createdAt: s.createdAt,
+      payment: s.payment,
+      discountPaise: s.discountPaise,
+      totalPaise: s.totalPaise,
+      note: s.note,
+      customer: toCustomer(s.customerId, s.customerNameSnapshot, s.customerPhoneSnapshot),
+      ...(profit ? { profitPaise: profit.fullProfitPaise } : {}),
+      items: its.map((i, k) => ({
+        productName: i.productNameSnapshot,
+        productCode: i.productCodeSnapshot,
+        colourName: i.colourNameSnapshot,
+        colourHex: i.colourHexSnapshot,
+        qty: i.qty,
+        ratePaise: i.ratePaise,
+        amountPaise: i.qty * i.ratePaise,
+        photoName: i.photoSnapshotName,
+        ...(profit ? { costPaise: i.costPaiseSnapshot, profitPaise: profit.lines[k].profitPaise } : {}),
+      })),
+    };
+  });
 
   const spend = new Map<string, { spendPaise: number; purchases: number }>();
   for (const s of live) {
@@ -199,7 +231,9 @@ export function buildOwnerReportData(
     generatedAt: opts.now ?? Date.now(),
     reportNumber: peekNextReportNumber(db),
     includeCustomerPhones,
-    summary: summarise(db, live),
+    includeProfit,
+    summary: withoutProfit(summarise(db, live)),
+    profit: includeProfit ? reportProfit(db, { from, to }) : null,
     sales: reportSales,
     returns: inPeriod
       .filter((s) => s.cancelledAt !== null)
@@ -214,5 +248,28 @@ export function buildOwnerReportData(
       lowCount: stock.filter((p) => p.status === 'low').length,
       outCount: stock.filter((p) => p.status === 'out').length,
     },
+  };
+}
+
+function withoutProfit(s: SalesSummary): OwnerReportSummary {
+  return {
+    pieces: s.pieces,
+    amountPaise: s.amountPaise,
+    count: s.count,
+    discountsPaise: s.discountsPaise,
+    byPayment: s.byPayment,
+    byCategory: s.byCategory,
+  };
+}
+
+function reportProfit(db: DbOrTx, range: DateRange): OwnerReportProfit {
+  const b = profitBreakdowns(db, range);
+  const values = stockValues(db);
+  return {
+    summary: b.summary,
+    byProduct: b.byProduct.slice(0, 10),
+    byCategory: b.byCategory,
+    stockValueAtCostPaise: values.atCostPaise,
+    stockCostUnknownPieces: values.unknownCostPieces,
   };
 }

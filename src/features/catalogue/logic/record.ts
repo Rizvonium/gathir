@@ -4,7 +4,7 @@
  */
 import { createCustomer } from '@/db/repo/customers';
 import { DuplicateCustomerError } from '@/db/repo/errors';
-import { logCardSent, logCatalogueSent, logLikedItem } from '@/db/repo/events';
+import { logCardSent, logCatalogueSent, logLikedItem, type CatalogueSentItem } from '@/db/repo/events';
 import { createReportRecord, markSent } from '@/db/repo/reports';
 import type { DbOrTx } from '@/db/types';
 import { formatPhone } from '@/lib/phone';
@@ -15,6 +15,8 @@ export type CatalogueSendRecord = {
   fileName: string;
   title: string;
   parts: number;
+  /** Rates offered (kept on the customer's "Versions sent"); `personal` = their own catalogue. */
+  snapshot?: { items: CatalogueSentItem[]; personal: boolean };
 };
 
 /** Report record (kind 'catalogue', marked sent) + the customer's timeline event. Returns the report id. */
@@ -25,12 +27,15 @@ export function recordCatalogueSent(db: DbOrTx, input: CatalogueSendRecord, now:
       kind: 'catalogue',
       fileName: input.fileName,
       customerId: input.customerId,
-      summary: { items: input.productIds.length, parts: input.parts, title: input.title },
+      summary: { items: input.productIds.length, parts: input.parts, title: input.title, ...(input.snapshot?.personal ? { personal: true } : {}) },
     },
     now,
   );
   markSent(db, id, now);
-  if (input.customerId) logCatalogueSent(db, input.customerId, id, input.productIds, now);
+  if (input.customerId) {
+    const snapshot = input.snapshot ? { items: input.snapshot.items, personal: input.snapshot.personal, title: input.title } : undefined;
+    logCatalogueSent(db, input.customerId, id, input.productIds, now, snapshot);
+  }
   return id;
 }
 

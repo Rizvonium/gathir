@@ -27,5 +27,8 @@ export function useMore() {
     setIncludePhones: (on: boolean) => {
       updateSettings(db, { reportIncludesCustomerPhones: on });
     },
+    setIncludeProfit: (on: boolean) => {
+      updateSettings(db, { reportIncludesProfit: on });
+    },
   };
 }

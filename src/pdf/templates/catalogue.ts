@@ -77,13 +77,16 @@ function photo(item: CatalogueItemDoc, style: CatalogueDocOptions['style']): str
 function card(item: CatalogueItemDoc, ctx: Ctx): string {
   const { options } = ctx.doc;
   const tag = availabilityTag(item, options, ctx.t);
-  const rate = options.showRates && item.ratePaise !== null ? `<span class="rate num">${escapeHtml(formatINR(item.ratePaise))}</span>` : '';
+  const showRate = options.showRates && item.ratePaise !== null;
+  const rate = showRate ? `<span class="rate num">${escapeHtml(formatINR(item.ratePaise ?? 0))}</span>` : '';
+  const special = showRate && item.specialPrice ? `<p class="special">${escapeHtml(ctx.t('card.specialPrice'))}</p>` : '';
   const meta = joinParts([item.craft, item.material, item.size]);
   return (
     `<article class="card">${photo(item, options.style)}<div class="body">` +
     `<h3 class="name">${escapeHtml(item.name)}</h3>` +
     (meta ? `<p class="meta">${escapeHtml(meta)}</p>` : '') +
     swatches(item, options, ctx.t) +
+    special +
     `<div class="foot-row">${rate}<span class="tag ${tag.kind}">${escapeHtml(tag.text)}</span></div>` +
     `</div></article>`
   );

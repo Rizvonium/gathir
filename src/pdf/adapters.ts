@@ -3,11 +3,12 @@
  * Photos are loaded through an injected loader (normally photoAsDataUri from src/lib/photos.ts)
  * so this module stays testable in Node and does not depend on expo modules.
  */
+import type { ProfitGroupRow } from '@/db/repo/profit';
 import type { CatalogueData, OwnerReportData } from '@/db/repo/reports';
 import type { SaleDetail } from '@/db/repo/saleQueries';
 import type { ShopInfo } from '@/db/repo/shopInfo';
 
-import type { BillDoc, CatalogueDoc, CatalogueDocOptions, OwnerReportDoc, PdfShop } from './types';
+import type { BillDoc, CatalogueDoc, CatalogueDocOptions, OwnerProfitRowDoc, OwnerReportDoc, PdfShop } from './types';
 
 /** (fileName, maxSide?, quality?) → data URI, or null when missing. Matches photoAsDataUri. */
 export type PhotoLoader = (fileName: string, maxSide?: number, quality?: number) => Promise<string | null>;
@@ -71,12 +72,13 @@ export function catalogueDocFromData(data: CatalogueData, extras: CatalogueExtra
       material: p.material,
       size: p.size,
       ratePaise: p.ratePaise,
+      specialPrice: data.options.showRates && p.ratePaise !== null && p.specialPrice === true,
       totalPieces: p.totalPieces,
       availability: p.availability,
       colours: p.colours,
       photoDataUri: (p.cover && photos.get(p.cover.fileName)) ?? null,
     })),
-    customerName: extras.customerName,
+    customerName: extras.customerName ?? data.preparedFor ?? null,
     personalNote: extras.personalNote,
     ratesValidTill: extras.ratesValidTill,
     discountLine: extras.discountLine,
@@ -130,6 +132,7 @@ export function ownerReportDocFromData(
       totalPaise: sale.totalPaise,
       note: sale.note,
       customer: sale.customer && { name: sale.customer.name, phone: sale.customer.phone, city: sale.customer.city, tag: sale.customer.tag },
+      ...(data.includeProfit ? { profitPaise: sale.profitPaise ?? null } : {}),
       items: sale.items.map((i) => ({
         productName: i.productName,
         productCode: i.productCode,
@@ -139,6 +142,7 @@ export function ownerReportDocFromData(
         ratePaise: i.ratePaise,
         amountPaise: i.amountPaise,
         photoDataUri: photo(i.photoName),
+        ...(data.includeProfit ? { costPaise: i.costPaise ?? null, profitPaise: i.profitPaise ?? null } : {}),
       })),
     })),
     returns: data.returns.map((r) => ({ billNo: r.billNo, createdAt: r.createdAt, cancelledAt: r.cancelledAt, totalPaise: r.totalPaise })),
@@ -175,6 +179,25 @@ export function ownerReportDocFromData(
       colours: r.colours,
     })),
     totals: { ...data.totals },
+    profit: data.includeProfit && data.profit ? profitDoc(data.profit) : null,
+  };
+}
+
+function profitRow(r: ProfitGroupRow): OwnerProfitRowDoc {
+  return { label: r.label, revenuePaise: r.knownRevenuePaise, profitPaise: r.profitPaise, marginPct: r.marginPct, unknownCostItems: r.unknownCostItems };
+}
+
+function profitDoc(p: NonNullable<OwnerReportData['profit']>): NonNullable<OwnerReportDoc['profit']> {
+  return {
+    profitPaise: p.summary.profitPaise,
+    marginPct: p.summary.marginPct,
+    knownCostPaise: p.summary.knownCostPaise,
+    knownRevenuePaise: p.summary.knownRevenuePaise,
+    unknownCostItems: p.summary.unknownCostItems,
+    byCategory: p.byCategory.map(profitRow),
+    byProduct: p.byProduct.map(profitRow),
+    stockValueAtCostPaise: p.stockValueAtCostPaise,
+    stockCostUnknownPieces: p.stockCostUnknownPieces,
   };
 }
 

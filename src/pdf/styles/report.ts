@@ -48,6 +48,7 @@ tfoot td{font-weight:700;border-bottom:none;border-top:0.75pt solid var(--walnut
 .sale table td{border-bottom:none;}
 .sale-foot{display:flex;justify-content:flex-end;gap:6mm;padding:1.5mm 3mm 2.5mm;font-size:8.5pt;}
 .sale-foot .total{font-weight:700;}
+.sale-foot .profit{color:var(--muted);}
 .sale-note{padding:0 3mm 2.5mm;font-size:8pt;color:var(--muted);}
 
 .thumb{width:13mm;height:13mm;border-radius:1.5mm;overflow:hidden;background:var(--sand);}

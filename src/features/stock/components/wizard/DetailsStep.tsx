@@ -7,17 +7,20 @@ import { Button, Chip, MoneyInput, TextField } from '@/ui/components';
 import { useTheme } from '@/ui/theme';
 
 import type { ProductWizard } from '../../hooks/useProductWizard';
-import { setFields, toggleValue } from '../../logic/draft';
+import { costWarnings, setFields, toggleValue } from '../../logic/draft';
 import { ChoiceChips } from './ChoiceChips';
 
 const asOptions = (list: readonly string[]) => list.map((v) => ({ value: v, label: v }));
 
-/** Step 2: tap chips first (they build the name), then the rate. Cost and notes stay folded. */
+/**
+ * Step 2: tap chips first (they build the name), then the rate and the buying price (seller-only,
+ * optional; it is what profit is worked out from). Notes stay folded.
+ */
 export function DetailsStep({ w }: { w: ProductWizard }) {
   const { space } = useTheme();
   const { t } = useTranslation('stock');
   const d = w.draft;
-  const [showCost, setShowCost] = useState(d.costPaise !== null);
+  const warn = costWarnings(d);
   const [showNotes, setShowNotes] = useState(d.notes !== '');
   const set = (patch: Parameters<typeof setFields>[1]) => w.update((cur) => setFields(cur, patch));
 
@@ -67,11 +70,13 @@ export function DetailsStep({ w }: { w: ProductWizard }) {
         error={w.errors.rate ? t(`wizard.errors.${w.errors.rate}`) : undefined}
       />
 
-      {showCost ? (
-        <MoneyInput label={t('wizard.details.cost')} value={d.costPaise} onChange={(costPaise) => set({ costPaise })} helper={t('wizard.details.costHelper')} />
-      ) : (
-        <Button label={t('wizard.details.addCost')} icon="add" variant="ghost" onPress={() => setShowCost(true)} style={{ alignSelf: 'flex-start' }} />
-      )}
+      <MoneyInput
+        testID="wizard-cost"
+        label={t('wizard.details.cost')}
+        value={d.costPaise}
+        onChange={(costPaise) => set({ costPaise })}
+        helper={warn.rateBelowCost ? t('wizard.details.costAboveRate') : t('wizard.details.costHelper')}
+      />
 
       {showNotes ? (
         <TextField

@@ -9,7 +9,7 @@ export const DAY = 86_400_000;
 
 export function addTestProduct(
   db: DbOrTx,
-  opts: { name?: string; craft?: string; ratePaise?: number; costPaise?: number; categoryId?: string | null; colours?: ColourInput[]; photos?: number; at?: number } = {},
+  opts: { name?: string; craft?: string; ratePaise?: number; costPaise?: number | null; categoryId?: string | null; colours?: ColourInput[]; photos?: number; at?: number } = {},
 ) {
   const photoCount = opts.photos ?? 0;
   const { productId, code } = createProduct(
@@ -19,7 +19,7 @@ export function addTestProduct(
         name: opts.name ?? 'Sozni stole',
         craft: opts.craft ?? 'Sozni',
         ratePaise: opts.ratePaise ?? 650_000,
-        costPaise: opts.costPaise ?? 400_000,
+        costPaise: opts.costPaise === undefined ? 400_000 : opts.costPaise,
         categoryId: opts.categoryId ?? null,
       },
       colours: opts.colours ?? [

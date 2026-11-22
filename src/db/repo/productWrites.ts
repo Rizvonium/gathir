@@ -27,8 +27,12 @@ export type ProductFields = {
   /** Leave empty to get the next GTH-#### code. */
   code?: string;
 };
-export type ProductUpdate = Partial<Omit<ProductFields, 'isSample' | 'code'>>;
-export type ColourInput = { name: string; hex: string; pieces: number };
+export type ProductUpdate = Partial<Omit<ProductFields, 'isSample' | 'code'>> & {
+  /** Per-colour buying price overrides of this product's colours: colourId → paise (null = use the product's). */
+  colourCosts?: Record<string, number | null>;
+};
+/** `costPaise`: this colour's own buying price (null/omitted = the product's buying price). Seller-only. */
+export type ColourInput = { name: string; hex: string; pieces: number; costPaise?: number | null };
 export type PhotoInput = { fileName: string; thumbName: string; width: number; height: number };
 export type CreateProductInput = { fields: ProductFields; colours: ColourInput[]; photos: PhotoInput[] };
 
@@ -38,6 +42,7 @@ function validateColour(c: ColourInput): void {
   requireText(c.name, 'Colour name');
   if (c.hex !== 'multi' && !HEX_RE.test(c.hex)) throw new RepoError('Colour must be #RRGGBB or multi', 'invalid');
   assertWhole(c.pieces, 'Pieces');
+  if (c.costPaise !== undefined && c.costPaise !== null) assertWhole(c.costPaise, 'Colour cost');
 }
 
 function validateMoney(fields: ProductUpdate): void {
@@ -99,7 +104,17 @@ export function createProduct(
     input.colours.forEach((c, i) => {
       const colourId = newId();
       tx.insert(colours)
-        .values({ id: colourId, productId, name: c.name.trim(), hex: c.hex, pieces: 0, sortOrder: i, createdAt: now, updatedAt: now })
+        .values({
+          id: colourId,
+          productId,
+          name: c.name.trim(),
+          hex: c.hex,
+          costPaise: c.costPaise ?? null,
+          pieces: 0,
+          sortOrder: i,
+          createdAt: now,
+          updatedAt: now,
+        })
         .run();
       if (c.pieces > 0) applyMove(tx, { colourId, delta: c.pieces, reason: 'opening', at: now });
     });
@@ -108,17 +123,28 @@ export function createProduct(
   });
 }
 
-/** Edits product details (not counts, colours or photos). */
+/** Edits product details and buying prices (not counts, colours or photos). */
 export function updateProduct(db: DbOrTx, productId: string, fields: ProductUpdate, now: number = Date.now()): void {
   validateMoney(fields);
-  const patch: ProductUpdate = { ...fields };
+  const { colourCosts, ...patch } = fields;
   if (fields.name !== undefined) patch.name = requireText(fields.name, 'Name');
-  const res = db
-    .update(products)
-    .set({ ...patch, updatedAt: now })
-    .where(eq(products.id, productId))
-    .run();
-  if (res.changes === 0) throw new RepoError('Product not found', 'not_found');
+  for (const cost of Object.values(colourCosts ?? {})) if (cost !== null) assertWhole(cost, 'Colour cost');
+  db.transaction((tx) => {
+    const res = tx
+      .update(products)
+      .set({ ...patch, updatedAt: now })
+      .where(eq(products.id, productId))
+      .run();
+    if (res.changes === 0) throw new RepoError('Product not found', 'not_found');
+    for (const [colourId, costPaise] of Object.entries(colourCosts ?? {})) {
+      const done = tx
+        .update(colours)
+        .set({ costPaise, updatedAt: now })
+        .where(and(eq(colours.id, colourId), eq(colours.productId, productId)))
+        .run();
+      if (done.changes === 0) throw new RepoError('Colour not found', 'not_found');
+    }
+  });
 }
 
 /** File names (photo + thumb) no longer referenced by any photo row or sale snapshot. */
@@ -175,6 +201,7 @@ export function addColour(db: DbOrTx, productId: string, input: ColourInput, now
         productId,
         name: input.name.trim(),
         hex: input.hex,
+        costPaise: input.costPaise ?? null,
         pieces: 0,
         sortOrder: (last?.m ?? -1) + 1,
         createdAt: now,
@@ -186,15 +213,26 @@ export function addColour(db: DbOrTx, productId: string, input: ColourInput, now
   });
 }
 
-/** Renames a colour and/or changes its swatch. */
-export function renameColour(db: DbOrTx, colourId: string, patch: { name?: string; hex?: string }, now: number = Date.now()): void {
+/** Renames a colour, changes its swatch and/or its own buying price (`costPaise: null` = use the product's). */
+export function renameColour(
+  db: DbOrTx,
+  colourId: string,
+  patch: { name?: string; hex?: string; costPaise?: number | null },
+  now: number = Date.now(),
+): void {
   const name = patch.name !== undefined ? requireText(patch.name, 'Colour name') : undefined;
   if (patch.hex !== undefined && patch.hex !== 'multi' && !HEX_RE.test(patch.hex)) {
     throw new RepoError('Colour must be #RRGGBB or multi', 'invalid');
   }
+  if (patch.costPaise !== undefined && patch.costPaise !== null) assertWhole(patch.costPaise, 'Colour cost');
   const res = db
     .update(colours)
-    .set({ ...(name ? { name } : {}), ...(patch.hex ? { hex: patch.hex } : {}), updatedAt: now })
+    .set({
+      ...(name ? { name } : {}),
+      ...(patch.hex ? { hex: patch.hex } : {}),
+      ...(patch.costPaise !== undefined ? { costPaise: patch.costPaise } : {}),
+      updatedAt: now,
+    })
     .where(eq(colours.id, colourId))
     .run();
   if (res.changes === 0) throw new RepoError('Colour not found', 'not_found');

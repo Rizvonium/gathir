@@ -10,13 +10,17 @@ import { useTranslation } from 'react-i18next';
 
 import { PAYMENT_METHODS, type PaymentMethod } from '@/db/schema';
 import { formatINR, formatNumber } from '@/lib/money';
-import { AppText, Button, ChipGroup, EmptyState, RollingNumber, Screen } from '@/ui/components';
+import { AppText, Button, ChipGroup, EmptyState, IconButton, RollingNumber, Screen } from '@/ui/components';
 import { LoomEmptyState } from '@/ui/patterns';
 import { useTheme } from '@/ui/theme';
+
+import { openProfit, ProfitEyeToggle } from '@/features/profit/components/ProfitBits';
+import { useProfitVisible } from '@/features/profit/privacy';
 
 import { useSalesList, type SalesListActions, type SalesListModel } from '../hooks/useSalesList';
 import { PAYMENT_ICONS, SALES_PERIODS, type SalesListItem, type SalesPeriod } from '../logic/salesList';
 import { DayHeader, SaleRow } from './SaleRow';
+import { SalesProfitLine } from './SalesProfitLine';
 
 const SELL = '/sell' as const;
 const saleHref = (id: string) => ({ pathname: '/sale/[id]', params: { id } }) as unknown as Href;
@@ -29,6 +33,8 @@ export function SalesScreen() {
 export function SalesView({ model, actions }: { model: SalesListModel; actions: SalesListActions }) {
   const { space } = useTheme();
   const { t } = useTranslation('sales');
+  const { t: tp } = useTranslation('profit');
+  const profitVisible = useProfitVisible();
   const periodWord = t(`list.periodLower.${model.period}`);
   const openSale = (id: string) => router.push(saleHref(id));
   const sell = () => router.push(SELL);
@@ -67,21 +73,24 @@ export function SalesView({ model, actions }: { model: SalesListModel; actions: 
   const salesWord = t('list.sales', { count: model.totals.count });
   const piecesWord = t('list.pieces', { count: model.totals.pieces });
   const summary = (
-    <View
-      testID="sales-summary"
-      accessible
-      accessibilityLabel={t('list.summaryA11y', { period: t(`list.${model.period}`), amount: formatINR(model.totals.amountPaise), sales: salesWord, pieces: piecesWord })}
-      style={{ paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: space.lg, gap: space.xs }}>
-      <AppText variant="small" muted>
-        {t('list.summaryLabel', { period: periodWord })}
-      </AppText>
-      <RollingNumber value={model.totals.amountPaise} format={formatINR} variant="count" accessible={false} testID="sales-amount" />
-      <View style={[styles.inline, { gap: space.xs }]}>
-        <RollingNumber value={model.totals.pieces} format={formatNumber} variant="body" weight="semibold" accessible={false} />
-        <AppText weight="semibold">{t('list.piecesWord', { count: model.totals.pieces })}</AppText>
-        <AppText muted>·</AppText>
-        <AppText muted>{salesWord}</AppText>
+    <View style={{ paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: space.lg, gap: space.sm }}>
+      <View
+        testID="sales-summary"
+        accessible
+        accessibilityLabel={t('list.summaryA11y', { period: t(`list.${model.period}`), amount: formatINR(model.totals.amountPaise), sales: salesWord, pieces: piecesWord })}
+        style={{ gap: space.xs }}>
+        <AppText variant="small" muted>
+          {t('list.summaryLabel', { period: periodWord })}
+        </AppText>
+        <RollingNumber value={model.totals.amountPaise} format={formatINR} variant="count" accessible={false} testID="sales-amount" />
+        <View style={[styles.inline, { gap: space.xs }]}>
+          <RollingNumber value={model.totals.pieces} format={formatNumber} variant="body" weight="semibold" accessible={false} />
+          <AppText weight="semibold">{t('list.piecesWord', { count: model.totals.pieces })}</AppText>
+          <AppText muted>·</AppText>
+          <AppText muted>{salesWord}</AppText>
+        </View>
       </View>
+      {model.profit && model.totals.count > 0 ? <SalesProfitLine profit={model.profit} visible={profitVisible} onOpen={openProfit} /> : null}
     </View>
   );
 
@@ -89,7 +98,16 @@ export function SalesView({ model, actions }: { model: SalesListModel; actions: 
     item.type === 'day' ? <DayHeader day={item.day} today={model.today} totals={item} /> : <SaleRow sale={item.sale} onPress={openSale} />;
 
   return (
-    <Screen title={t('list.title')} padded={false} testID="sales-screen">
+    <Screen
+      title={t('list.title')}
+      padded={false}
+      testID="sales-screen"
+      actions={
+        <View style={styles.inlineCenter}>
+          <ProfitEyeToggle testID="sales-profit-eye" />
+          <IconButton icon="insights" accessibilityLabel={tp('openA11y')} onPress={openProfit} testID="sales-open-profit" />
+        </View>
+      }>
       {filters}
       {model.empty === 'none' ? (
         <FlashList
@@ -136,5 +154,6 @@ function SalesEmpty({ model, actions, onSell }: { model: SalesListModel; actions
 const styles = StyleSheet.create({
   noWrap: { flexWrap: 'nowrap' },
   inline: { flexDirection: 'row', alignItems: 'baseline' },
+  inlineCenter: { flexDirection: 'row', alignItems: 'center' },
   fab: { position: 'absolute' },
 });

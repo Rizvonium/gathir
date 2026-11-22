@@ -3,12 +3,13 @@ import { and, eq, isNull } from 'drizzle-orm';
 
 import { newId } from '@/lib/ids';
 
-import { colours, customers, photos, products, saleItems, sales, type PaymentMethod } from '../schema';
+import { colours, customers, photos, products, saleItems, sales, shopSettings, stockMoves, type PaymentMethod } from '../schema';
 import { applyMove } from '../stock';
 import type { DbOrTx } from '../types';
 import { assertWhole, RepoError } from './errors';
+import { effectiveCost } from './profitMath';
 import { createCustomer, findByPhone } from './customerWrites';
-import { nextBillNo } from './settings';
+import { getSettings, nextBillNo } from './settings';
 
 export type SaleItemInput = { colourId: string; qty: number; ratePaise: number };
 export type CreateSaleInput = {
@@ -105,6 +106,7 @@ export function createSale(db: DbOrTx, input: CreateSaleInput, now: number = Dat
           photoSnapshotName: row.coverThumb ?? null,
           qty: item.qty,
           ratePaise: item.ratePaise,
+          costPaiseSnapshot: effectiveCost(row.colour.costPaise, row.product.costPaise),
         })
         .run();
       applyMove(tx, { colourId: item.colourId, delta: -item.qty, reason: 'sold', saleId, at: now });
@@ -131,4 +133,60 @@ export function cancelSale(db: DbOrTx, saleId: string, now: number = Date.now())
     tx.update(sales).set({ cancelledAt: now }).where(eq(sales.id, saleId)).run();
     return true;
   });
+}
+
+/** A sale can be voided (true Undo) only this long after it was recorded. */
+export const VOID_WINDOW_MS = 2 * 60_000;
+
+/** Note on the compensating 'correction' moves written by voidSale. */
+export const VOID_NOTE = 'sale voided';
+
+const BILL_YEAR_FACTOR = 100_000;
+
+/**
+ * True Undo for a sale just recorded (Sell sheet toast), within VOID_WINDOW_MS of creation.
+ *
+ * The ledger stays append-only and consistent: every 'sold' move gets a compensating +qty
+ * 'correction' move (note VOID_NOTE, same sale id, so owner reports skip both), then the sale and
+ * its items are deleted. The bill number is given back only when it is still the latest issued.
+ *
+ * Throws RepoError: 'not_found' (no such sale), 'already_done' (cancelled, older than the window,
+ * or already in an owner report: use cancelSale / Return instead).
+ */
+export function voidSale(db: DbOrTx, saleId: string, now: number = Date.now()): void {
+  db.transaction((tx) => {
+    const sale = tx.select().from(sales).where(eq(sales.id, saleId)).get();
+    if (!sale) throw new RepoError('Sale not found', 'not_found');
+    if (sale.cancelledAt !== null) throw new RepoError('Sale was already returned', 'already_done');
+    if (sale.reportId !== null) throw new RepoError('Sale is already in an owner report', 'already_done');
+    if (now - sale.createdAt > VOID_WINDOW_MS || now < sale.createdAt - VOID_WINDOW_MS) {
+      throw new RepoError('Too late to undo this sale', 'already_done');
+    }
+    const moves = tx
+      .select()
+      .from(stockMoves)
+      .where(and(eq(stockMoves.saleId, saleId), eq(stockMoves.reason, 'sold')))
+      .all();
+    for (const m of moves) {
+      const exists = tx.select({ id: colours.id }).from(colours).where(eq(colours.id, m.colourId)).get();
+      if (exists) applyMove(tx, { colourId: m.colourId, delta: -m.delta, reason: 'correction', saleId, note: VOID_NOTE, at: now });
+    }
+    tx.delete(saleItems).where(eq(saleItems.saleId, saleId)).run();
+    tx.delete(sales).where(eq(sales.id, saleId)).run();
+    releaseBillNo(tx, sale.billNo, now);
+  });
+}
+
+/** Steps the bill sequence back when `billNo` is the latest number issued (B-yyyy-nnnn). */
+function releaseBillNo(tx: DbOrTx, billNo: string, now: number): void {
+  const m = /^B-(\d{4})-(\d+)$/.exec(billNo);
+  if (!m) return;
+  const year = Number(m[1]);
+  const seq = Number(m[2]);
+  const stored = getSettings(tx, now).billSeq;
+  if (stored !== year * BILL_YEAR_FACTOR + seq) return;
+  // Never hand back a number another sale still uses (e.g. one restored from a backup).
+  if (tx.select({ id: sales.id }).from(sales).where(eq(sales.billNo, billNo)).get()) return;
+  const prev = seq > 1 ? year * BILL_YEAR_FACTOR + seq - 1 : 0;
+  tx.update(shopSettings).set({ billSeq: prev, updatedAt: now }).where(eq(shopSettings.id, 1)).run();
 }

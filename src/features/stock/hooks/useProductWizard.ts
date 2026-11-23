@@ -19,6 +19,7 @@ import {
   firstErrorStep,
   hasErrors,
   MAX_DRAFT_PHOTOS,
+  rebaseEditDraft,
   resolvedName,
   setStep,
   validateDraft,
@@ -55,9 +56,12 @@ export function useProductWizard(productId: string | undefined) {
   // No draft is stored until the first change: "new" starts empty, "edit" from the saved
   // values (read fresh until the seller changes something). After Save or Discard nothing
   // re-creates it behind the seller's back.
-  const base: ProductDraft | null = stored ?? (editing ? (detail ? draftFromDetail(detail) : null) : emptyDraft());
+  // A kept edit draft is re-based on the saved product each time it is read: sales, restocks or
+  // removed colours since the draft was started must not come back as stale counts.
+  const rebase = (d: ProductDraft) => (editing && detail ? rebaseEditDraft(d, detail) : d);
+  const base: ProductDraft | null = stored ? rebase(stored) : editing ? (detail ? draftFromDetail(detail) : null) : emptyDraft();
   const draft: ProductDraft = base ?? emptyDraft();
-  const update = (fn: (d: ProductDraft) => ProductDraft) => updateStore(key, fn, draft);
+  const update = (fn: (d: ProductDraft) => ProductDraft) => updateStore(key, (d) => fn(rebase(d)), draft);
 
   const categoryName = categories.find((c) => c.id === draft.categoryId)?.name ?? null;
   const suggestions = suggestNames({ craft: draft.craft, material: draft.material, categoryName, size: draft.size });

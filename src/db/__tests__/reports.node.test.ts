@@ -8,8 +8,10 @@ import {
   computeFingerprint,
   createReportRecord,
   lastOwnerReport,
+  lastReportedUntil,
   listReports,
   markSent,
+  sinceLastReportPeriod,
   unmarkSent,
 } from '@/db/repo/reports';
 import { cancelSale, createSale, salesSummary, unreportedSales } from '@/db/repo/sales';
@@ -52,6 +54,8 @@ describe('owner report data', () => {
     expect(data.sales[0].items[0].photoName).toBe('Sozni stole-0-t.jpg');
     expect(data.sales[0].customer).toMatchObject({ id: cust, name: 'Asha', phone: null, city: 'Srinagar' });
     expect(data.returns).toHaveLength(1);
+    expect(data.returns[0].earlierSale).toBe(false);
+    expect(data.earlierReturnsPaise).toBe(0);
     const reasons = data.stockChanges.map((m) => m.reason);
     expect(reasons).toEqual(['opening', 'opening', 'opening', 'opening', 'damaged']);
     expect(data.stockChanges[4].note).toBe('moth');
@@ -86,6 +90,54 @@ describe('owner report data', () => {
     unmarkSent(db, rec.id);
     expect(unreportedSales(db)).toHaveLength(2);
     expect(lastOwnerReport(db)).toBeNull();
+  });
+});
+
+describe('owner report periods', () => {
+  function sendOwner(db: ReturnType<typeof createTestDb>, from: number, to: number, at: number) {
+    const rec = createReportRecord(db, { kind: 'owner', periodFrom: from, periodTo: to }, at);
+    markSent(db, rec.id, at);
+    return rec.id;
+  }
+
+  it('a return of a sale from an earlier report reaches the next report', () => {
+    const { db, b } = setup();
+    // Monday: the Kani shawl is sold and goes out in report #1.
+    const kani = createSale(db, { items: [{ colourId: b.colourIds[0], qty: 1, ratePaise: 8_500_000 }] }, T0 + 10_000);
+    sendOwner(db, T0, T0 + DAY, T0 + DAY);
+    // Wednesday: the customer brings it back.
+    cancelSale(db, kani.saleId, T0 + 2 * DAY);
+    const next = sinceLastReportPeriod(db, T0 + 3 * DAY, T0);
+    expect(next.from).toBe(T0 + DAY + 1);
+    const data = buildOwnerReportData(db, { ...next, includeCustomerPhones: true, now: next.to });
+    expect(data.sales).toHaveLength(0);
+    expect(data.returns).toEqual([
+      { saleId: kani.saleId, billNo: kani.billNo, createdAt: T0 + 10_000, cancelledAt: T0 + 2 * DAY, totalPaise: 8_500_000, earlierSale: true },
+    ]);
+    expect(data.earlierReturnsPaise).toBe(8_500_000);
+    // The report that already had the sale does not list it twice when rebuilt.
+    const first = buildOwnerReportData(db, { from: T0, to: T0 + DAY, includeCustomerPhones: true, now: T0 + 3 * DAY });
+    expect(first.returns.filter((r) => r.saleId === kani.saleId)).toEqual([expect.objectContaining({ earlierSale: false })]);
+  });
+
+  it('a Custom report for earlier days sent later does not pull "Since last report" back', () => {
+    const { db } = setup();
+    const monEvening = T0 + DAY;
+    sendOwner(db, T0, monEvening, monEvening);
+    // Next day the seller re-sends a Custom report for the day before.
+    sendOwner(db, T0 - DAY, T0 - 1, monEvening + DAY / 2);
+    expect(lastOwnerReport(db)?.periodTo).toBe(T0 - 1);
+    expect(lastReportedUntil(db)).toBe(monEvening);
+    const next = sinceLastReportPeriod(db, T0 + 2 * DAY, T0 - 10 * DAY);
+    expect(next).toEqual({ from: monEvening + 1, to: T0 + 2 * DAY });
+    // None of Monday's sales are sent again.
+    expect(buildOwnerReportData(db, { ...next, includeCustomerPhones: true, now: next.to }).sales).toHaveLength(0);
+  });
+
+  it('falls back when no owner report was sent', () => {
+    const { db } = setup();
+    expect(lastReportedUntil(db)).toBeNull();
+    expect(sinceLastReportPeriod(db, T0 + DAY, T0)).toEqual({ from: T0, to: T0 + DAY });
   });
 });
 

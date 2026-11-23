@@ -88,6 +88,7 @@ export function ownerReport(over: Partial<OwnerReportDoc> = {}): OwnerReportDoc 
       },
     ],
     returns: [],
+    earlierReturnsPaise: 0,
     customers: {
       newCustomers: [{ name: 'Mrs. <b>Shah</b>', phone: '+919811112222', city: 'Delhi', tag: 'regular' }],
       topBySpend: [{ name: 'Mrs. <b>Shah</b>', phone: null, city: 'Delhi', tag: null, spendPaise: 1250000, purchases: 1 }],

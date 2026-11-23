@@ -1,7 +1,9 @@
 import { addTestProduct, DAY, expectNoDrift, T0 } from '@/db/__tests__/fixtures';
 import { createCustomer, softDeleteCustomer } from '@/db/repo/customers';
 import { getProductDetail, stockHistory } from '@/db/repo/productQueries';
-import { softDeleteProduct } from '@/db/repo/products';
+import { removeColour as removeSavedColour, softDeleteProduct, updateProduct } from '@/db/repo/products';
+import { createSale } from '@/db/repo/sales';
+import { recordRestock } from '@/db/stock';
 import { createTestDb } from '@/test/testDb';
 
 import {
@@ -10,6 +12,7 @@ import {
   draftFromDetail,
   emptyDraft,
   firstErrorStep,
+  rebaseEditDraft,
   makeCover,
   movePhoto,
   removeColour,
@@ -160,6 +163,92 @@ describe('saveDraft', () => {
     ]);
     const reasons = stockHistory(db, productId).map((h) => h.reason);
     expect(reasons).toEqual(expect.arrayContaining(['added', 'deleted']));
+    expectNoDrift(db);
+  });
+
+  it('re-tapping a removed saved colour brings it back as it was (no write-off, no new colour)', () => {
+    const db = createTestDb();
+    const { productId, colourIds } = addTestProduct(db, { colours: [{ name: 'Maroon', hex: '#800000', pieces: 5, costPaise: 400_000 }, { name: 'Beige', hex: '#D8C3A5', pieces: 2 }] });
+    const detail = getProductDetail(db, productId);
+    if (!detail) throw new Error('missing');
+    let d = draftFromDetail(detail);
+    d = toggleSwatch(d, 'Maroon', '#800000'); // mis-tap: removed
+    expect(d.removedColourIds).toEqual([colourIds[0]]);
+    d = toggleSwatch(d, 'Maroon', '#800000'); // tapped again: the saved colour is back
+    expect(d.removedColourIds).toEqual([]);
+    expect(d.colours.find((c) => c.name === 'Maroon')).toMatchObject({ id: colourIds[0], pieces: 5, costPaise: 400_000 });
+    saveDraft(db, d, 'Sozni stole', T0 + DAY);
+    const after = getProductDetail(db, productId);
+    expect(after?.colours.map((c) => [c.id, c.name, c.pieces, c.costPaise])).toEqual([
+      [colourIds[0], 'Maroon', 5, 400_000],
+      [colourIds[1], 'Beige', 2, null],
+    ]);
+    expect(stockHistory(db, productId).filter((h) => h.at === T0 + DAY)).toEqual([]);
+    expectNoDrift(db);
+  });
+
+  it('a kept edit draft is re-based on newer saved counts and fields', () => {
+    const db = createTestDb();
+    const { productId, colourIds } = addTestProduct(db, { costPaise: 300_000, colours: [{ name: 'Maroon', hex: '#800000', pieces: 5 }, { name: 'Beige', hex: '#D8C3A5', pieces: 2 }] });
+    const detail = getProductDetail(db, productId);
+    if (!detail) throw new Error('missing');
+    // Edit started: name changed, then the seller leaves (the draft is kept).
+    let d = setFields(draftFromDetail(detail), { name: 'Maroon stole' });
+    d = setColourPieces(d, d.colours[1].key, 3); // +1 Beige typed
+    // Meanwhile: 2 Maroon sold, buying price changed elsewhere, 4 Beige restocked.
+    createSale(db, { items: [{ colourId: colourIds[0], qty: 2, ratePaise: 650_000 }] }, T0 + 1);
+    updateProduct(db, productId, { costPaise: 350_000 }, T0 + 2);
+    recordRestock(db, colourIds[1], 4, '', T0 + 3);
+    const fresh = getProductDetail(db, productId);
+    if (!fresh) throw new Error('missing');
+    const r = rebaseEditDraft(d, fresh);
+    expect(r.colours.map((c) => [c.name, c.pieces])).toEqual([
+      ['Maroon', 3],
+      ['Beige', 7], // saved 6 + the seller's +1
+    ]);
+    expect(r.costPaise).toBe(350_000);
+    expect(r.name).toBe('Maroon stole');
+    expect(rebaseEditDraft(r, fresh)).toBe(r); // idempotent
+    // Saving the STALE draft re-bases too: the sale is not undone, the newer cost is kept.
+    saveDraft(db, d, 'Maroon stole', T0 + DAY);
+    const after = getProductDetail(db, productId);
+    expect(after?.product).toMatchObject({ name: 'Maroon stole', costPaise: 350_000 });
+    expect(after?.colours.map((c) => [c.name, c.pieces])).toEqual([
+      ['Maroon', 3],
+      ['Beige', 7],
+    ]);
+    expectNoDrift(db);
+  });
+
+  it('the seller fixing a stale count to the real number writes no wrong correction', () => {
+    const db = createTestDb();
+    const { productId, colourIds } = addTestProduct(db, { colours: [{ name: 'Maroon', hex: '#800000', pieces: 5 }] });
+    const detail = getProductDetail(db, productId);
+    if (!detail) throw new Error('missing');
+    const kept = setFields(draftFromDetail(detail), { notes: 'x' });
+    createSale(db, { items: [{ colourId: colourIds[0], qty: 2, ratePaise: 1 }] }, T0 + 1);
+    const fresh = getProductDetail(db, productId);
+    if (!fresh) throw new Error('missing');
+    // Reopening shows the real count (3); the seller leaves it.
+    const shown = rebaseEditDraft(kept, fresh);
+    expect(shown.colours[0].pieces).toBe(3);
+    saveDraft(db, setColourPieces(shown, shown.colours[0].key, 3), 'Sozni stole', T0 + DAY);
+    expect(getProductDetail(db, productId)?.colours[0].pieces).toBe(3);
+    expectNoDrift(db);
+  });
+
+  it('drops colours deleted since the draft was started instead of restocking them', () => {
+    const db = createTestDb();
+    const { productId, colourIds } = addTestProduct(db);
+    const detail = getProductDetail(db, productId);
+    if (!detail) throw new Error('missing');
+    let d = draftFromDetail(detail);
+    d = setColourPieces(d, d.colours[1].key, 5);
+    removeSavedColour(db, colourIds[1], T0 + 1);
+    saveDraft(db, d, 'Sozni stole', T0 + DAY);
+    const after = getProductDetail(db, productId);
+    expect(after?.colours.map((c) => c.id)).toEqual([colourIds[0]]);
+    expect(stockHistory(db, productId).filter((h) => h.colourId === colourIds[1] && h.delta > 0 && h.reason !== 'opening')).toEqual([]);
     expectNoDrift(db);
   });
 

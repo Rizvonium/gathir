@@ -12,7 +12,7 @@ import { profitSummary } from '@/db/repo/profit';
 import { createCategory, deleteCategory, listCategories, renameCategory, reorderCategories } from '@/db/repo/categories';
 import { RepoError } from '@/db/repo/errors';
 import { listProducts, renameColour } from '@/db/repo/products';
-import { createSale, listSales } from '@/db/repo/sales';
+import { createSale, getSale, listSales } from '@/db/repo/sales';
 import { getSettings, markOnboarded, nextProductCode, updateSettings } from '@/db/repo/settings';
 import { clearSampleData, hasSampleData, insertSampleData } from '@/db/sampleData';
 import * as schema from '@/db/schema';
@@ -79,6 +79,21 @@ describe('backup', () => {
     importAllTables(db, exported);
     expect(db.select().from(products).all()).toHaveLength(12);
     expect(db.select().from(sales).all()).toHaveLength(15);
+  });
+
+  it('keeps the order of sale lines (rowid order, not random-id order)', () => {
+    const db = createTestDb();
+    const names = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+    const { colourIds } = addTestProduct(db, { colours: names.map((n, i) => ({ name: n, hex: `#00000${i}`, pieces: 3 })) });
+    // Same rate on every line with an odd discount: ties are broken by line order.
+    const { saleId } = createSale(db, { items: colourIds.map((colourId) => ({ colourId, qty: 1, ratePaise: 100_001 })), discountPaise: 7 }, T0);
+    const before = getSale(db, saleId);
+    const exported = JSON.parse(JSON.stringify(exportAllTables(db, T0)));
+    const fresh = createTestDb({ seed: false });
+    importAllTables(fresh, exported);
+    const after = getSale(fresh, saleId);
+    expect(after?.items.map((i) => i.colourNameSnapshot)).toEqual(names);
+    expect(after?.items.map((i) => i.id)).toEqual(before?.items.map((i) => i.id));
   });
 
   it('rejects bad backups and leaves data untouched', () => {

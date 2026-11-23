@@ -3,9 +3,11 @@
  * expo imports) so it runs in Node tests with createTestDb(). Photo files are not touched
  * here: the caller deletes the returned `filesToDelete` after the write succeeded.
  */
+import { RepoError } from '@/db/repo/errors';
 import {
   addColour,
   createProduct,
+  getProductDetail,
   removeColour,
   renameColour,
   setPhotos,
@@ -15,7 +17,7 @@ import {
 import { recordReduction, recordRestock } from '@/db/stock';
 import type { DbOrTx } from '@/db/types';
 
-import type { DraftColour, ProductDraft } from './draft';
+import { changedProductFields, rebaseEditDraft, type DraftColour, type ProductDraft } from './draft';
 
 export type SaveResult = { productId: string; created: boolean; filesToDelete: string[] };
 
@@ -71,13 +73,19 @@ export function saveDraft(db: DbOrTx, draft: ProductDraft, name: string, now: nu
     }
 
     const productId = draft.productId;
-    updateProduct(tx, productId, fieldsOf(draft, name), now);
-    const dropped = setPhotos(tx, productId, draft.photos, now);
-    const removed = new Set(draft.removedColourIds);
+    // The draft may be older than the saved product (kept in memory while the seller sold or
+    // restocked elsewhere): re-base it on what is saved now, then write only the seller's changes.
+    const detail = getProductDetail(tx, productId);
+    if (!detail) throw new RepoError('Product not found', 'not_found');
+    const current = rebaseEditDraft(draft, detail);
+    const patch = changedProductFields(fieldsOf(current, name), current.originalFields);
+    if (Object.keys(patch).length > 0) updateProduct(tx, productId, patch, now);
+    const dropped = setPhotos(tx, productId, current.photos, now);
+    const removed = new Set(current.removedColourIds);
     // Saved colours put aside by One-of-a-kind are removed too.
-    for (const c of draft.stashedColours) if (c.id) removed.add(c.id);
+    for (const c of current.stashedColours) if (c.id) removed.add(c.id);
     for (const id of removed) removeColour(tx, id, now);
-    for (const c of draft.colours) saveColour(tx, productId, c, now);
+    for (const c of current.colours) saveColour(tx, productId, c, now);
     const filesToDelete = [...new Set([...dropped, ...unreferencedFiles(tx, draft.discardedFiles)])];
     return { productId, created: false, filesToDelete };
   });

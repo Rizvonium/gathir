@@ -184,7 +184,10 @@ export type OwnerReportDoc = {
     byCategory: { name: string | null; pieces: number; amountPaise: number }[];
   };
   sales: OwnerSaleDoc[];
-  returns: { billNo: string; createdAt: number; cancelledAt: number; totalPaise: number }[];
+  /** `earlierSale`: made before this period (counted in an earlier report), returned during it. */
+  returns: { billNo: string; createdAt: number; cancelledAt: number; totalPaise: number; earlierSale: boolean }[];
+  /** Refunded in this period for sales made before it. */
+  earlierReturnsPaise: number;
   customers: {
     newCustomers: OwnerCustomerDoc[];
     topBySpend: (OwnerCustomerDoc & { spendPaise: number; purchases: number })[];

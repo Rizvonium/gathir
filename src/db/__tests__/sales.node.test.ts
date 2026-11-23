@@ -1,12 +1,16 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import { RepoError } from '@/db/repo/errors';
-import { softDeleteProduct, stockHistory } from '@/db/repo/products';
+import { listProducts, removeColour, softDeleteProduct, stockHistory } from '@/db/repo/products';
+import { purgeDeletedOlderThan } from '@/db/repo/productLifecycle';
+import { addNote } from '@/db/repo/events';
+import { createReportRecord } from '@/db/repo/reports';
+import { createCustomer } from '@/db/repo/customers';
 import { buildOwnerReportData } from '@/db/repo/reports';
 import { cancelSale, createSale, getSale, hasAnySale, listSales, salesSummary, unreportedSales, VOID_NOTE, VOID_WINDOW_MS, voidSale } from '@/db/repo/sales';
 import { createCategory } from '@/db/repo/categories';
 import { colours, customers, saleItems, sales, stockMoves } from '@/db/schema';
-import { productPieces, StockError } from '@/db/stock';
+import { adjustStock, productPieces, StockError } from '@/db/stock';
 import { createTestDb } from '@/test/testDb';
 
 import { addTestProduct, DAY, expectNoDrift, T0 } from './fixtures';
@@ -193,5 +197,109 @@ describe('voidSale (true Undo)', () => {
     expect(() => voidSale(db, 'nope', T0)).toThrow(expect.objectContaining({ code: 'not_found' }));
     expect(getSale(db, old.saleId)).not.toBeNull();
     expectNoDrift(db);
+  });
+});
+
+describe('voidSale after the bill was sent', () => {
+  it('refuses (Undo becomes a return) and never reissues the bill number', () => {
+    const db = createTestDb();
+    const { colourIds } = addTestProduct(db);
+    const item = { colourId: colourIds[0], qty: 1, ratePaise: 100 };
+    const sold = createSale(db, { items: [item] }, T0);
+    createReportRecord(db, { kind: 'bill', fileName: 'bill.pdf', summary: { saleId: sold.saleId, billNo: sold.billNo, totalPaise: 100 } }, T0 + 5);
+    expect(() => voidSale(db, sold.saleId, T0 + 10)).toThrow(expect.objectContaining({ code: 'already_done' }));
+    expect(getSale(db, sold.saleId)).not.toBeNull();
+    // The Undo path falls back to a return: the sale stays (cancelled), the number stays taken.
+    expect(cancelSale(db, sold.saleId, T0 + 11)).toBe(true);
+    expect(createSale(db, { items: [item] }, T0 + 12).billNo).toBe('B-2026-0002');
+    expectNoDrift(db);
+  });
+
+  it('a bill record for another sale or with odd JSON does not block the void', () => {
+    const db = createTestDb();
+    const { colourIds } = addTestProduct(db);
+    const item = { colourId: colourIds[0], qty: 1, ratePaise: 100 };
+    const other = createSale(db, { items: [item] }, T0);
+    const sold = createSale(db, { items: [item] }, T0 + 1);
+    createReportRecord(db, { kind: 'bill', summary: { saleId: other.saleId } }, T0 + 2);
+    const bad = createReportRecord(db, { kind: 'bill' }, T0 + 2);
+    db.run(sql`update reports set summary_json = 'not json' where id = ${bad.id}`);
+    voidSale(db, sold.saleId, T0 + 3);
+    expect(getSale(db, sold.saleId)).toBeNull();
+  });
+});
+
+describe('voidSale and the customer it created', () => {
+  it('removes a walk-in customer created by the voided sale', () => {
+    const db = createTestDb();
+    const { colourIds } = addTestProduct(db);
+    const sold = createSale(db, { items: [{ colourId: colourIds[0], qty: 1, ratePaise: 100 }], newCustomer: { name: 'Asha' } }, T0);
+    expect(db.select().from(customers).all()).toHaveLength(1);
+    voidSale(db, sold.saleId, T0 + 10);
+    expect(db.select().from(customers).all()).toHaveLength(0);
+    expect(buildOwnerReportData(db, { from: T0 - DAY, to: T0 + DAY, includeCustomerPhones: false }).customers.newCustomers).toEqual([]);
+  });
+
+  it('keeps customers that existed before, or are used elsewhere', () => {
+    const db = createTestDb();
+    const { colourIds } = addTestProduct(db);
+    const item = { colourId: colourIds[0], qty: 1, ratePaise: 100 };
+    const existing = createCustomer(db, { name: 'Bilal', phone: '9876543210', tag: 'walk_in' }, T0 - DAY);
+    const reused = createSale(db, { items: [item], newCustomer: { name: 'Bilal', phone: '9876543210' } }, T0);
+    expect(reused.customerId).toBe(existing);
+    voidSale(db, reused.saleId, T0 + 1);
+    const noted = createSale(db, { items: [item], newCustomer: { name: 'Zoya' } }, T0 + 2);
+    addNote(db, noted.customerId ?? '', 'wants blue', T0 + 3);
+    voidSale(db, noted.saleId, T0 + 4);
+    expect(db.select({ name: customers.name }).from(customers).all().map((c) => c.name).sort()).toEqual(['Bilal', 'Zoya']);
+  });
+});
+
+describe('returns to a deleted colour or design', () => {
+  it('brings a removed colour back into live stock with the returned pieces', () => {
+    const db = createTestDb();
+    const { productId, colourIds } = addTestProduct(db); // Red 4, Beige 2
+    const sold = createSale(db, { items: [{ colourId: colourIds[0], qty: 1, ratePaise: 100 }] }, T0);
+    removeColour(db, colourIds[0], T0 + DAY); // 3 Red written off
+    expect(productPieces(db, productId)).toBe(2);
+    expect(cancelSale(db, sold.saleId, T0 + 2 * DAY)).toBe(true);
+    const red = db.select().from(colours).where(eq(colours.id, colourIds[0])).get();
+    expect(red).toMatchObject({ deletedAt: null, pieces: 1 });
+    expect(productPieces(db, productId)).toBe(3);
+    expect(listProducts(db).find((p) => p.id === productId)?.totalPieces).toBe(3);
+    // It can be sold again.
+    createSale(db, { items: [{ colourId: colourIds[0], qty: 1, ratePaise: 100 }] }, T0 + 3 * DAY);
+    expectNoDrift(db);
+  });
+
+  it('brings a deleted design back so the returned piece is not purged with it', () => {
+    const db = createTestDb();
+    const { productId, colourIds } = addTestProduct(db);
+    const sold = createSale(db, { items: [{ colourId: colourIds[1], qty: 2, ratePaise: 100 }] }, T0);
+    softDeleteProduct(db, productId, T0 + DAY);
+    cancelSale(db, sold.saleId, T0 + 2 * DAY);
+    expect(listProducts(db).find((p) => p.id === productId)?.totalPieces).toBe(2);
+    expect(purgeDeletedOlderThan(db, T0 + 60 * DAY).productIds).toEqual([]);
+    expectNoDrift(db);
+  });
+
+  it('a void within the window also brings a just-removed colour back', () => {
+    const db = createTestDb();
+    const { productId, colourIds } = addTestProduct(db);
+    const sold = createSale(db, { items: [{ colourId: colourIds[0], qty: 4, ratePaise: 100 }] }, T0);
+    removeColour(db, colourIds[0], T0 + 1);
+    voidSale(db, sold.saleId, T0 + 2);
+    expect(db.select().from(colours).where(eq(colours.id, colourIds[0])).get()).toMatchObject({ deletedAt: null, pieces: 4 });
+    expect(productPieces(db, productId)).toBe(6);
+    expectNoDrift(db);
+  });
+
+  it('applyMove refuses to add pieces to a deleted colour except as a restore', () => {
+    const db = createTestDb();
+    const { colourIds } = addTestProduct(db);
+    removeColour(db, colourIds[0], T0);
+    expect(() => adjustStock(db, { colourId: colourIds[0], delta: 1, reason: 'added', at: T0 + 1 })).toThrow(StockError);
+    expect(() => adjustStock(db, { colourId: colourIds[0], delta: 1, reason: 'returned', at: T0 + 1 })).toThrow(StockError);
+    expect(adjustStock(db, { colourId: colourIds[0], delta: 1, reason: 'restored', at: T0 + 1 })).toBe(1);
   });
 });

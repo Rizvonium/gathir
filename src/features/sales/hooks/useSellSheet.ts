@@ -124,8 +124,8 @@ export function useSellSheet(params: SellParams): SellController {
 
   /**
    * Undo from the "Sold" toast: a true void (sale gone, pieces back, bill number freed when it was
-   * the latest) within 2 minutes; after that, or if the sale is already in a report, it becomes a
-   * normal return so the pieces still come back.
+   * the latest) within 2 minutes; after that, if the sale is already in a report, or once its bill
+   * was sent to the customer, it becomes a normal return so the pieces still come back.
    */
   const undo = (saleId: string): boolean => {
     try {

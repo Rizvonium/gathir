@@ -1,5 +1,5 @@
 /** Report records (owner reports, catalogues, bills, cards) and the PDF view models. */
-import { and, desc, eq, gte, isNotNull, isNull, lte } from 'drizzle-orm';
+import { and, desc, eq, gte, isNotNull, isNull, lte, max } from 'drizzle-orm';
 
 import { newId } from '@/lib/ids';
 
@@ -104,9 +104,23 @@ export function lastOwnerReport(db: DbOrTx): Report | null {
   );
 }
 
-/** Default "Since last report" period: from just after the last sent report's end (or `fallbackFrom`) to now. */
+/**
+ * End of everything already reported: the latest `periodTo` among sent owner reports, or null.
+ * Not the most recently *sent* report's end: a Custom report for earlier days sent later must not
+ * pull the next "Since last report" back over sales the owner already has.
+ */
+export function lastReportedUntil(db: DbOrTx): number | null {
+  const row = db
+    .select({ to: max(reports.periodTo) })
+    .from(reports)
+    .where(and(eq(reports.kind, 'owner'), isNotNull(reports.sentAt)))
+    .get();
+  return row?.to ?? null;
+}
+
+/** Default "Since last report" period: from just after the end of everything reported (or `fallbackFrom`) to now. */
 export function sinceLastReportPeriod(db: DbOrTx, now: number, fallbackFrom: number): { from: number; to: number } {
-  const last = lastOwnerReport(db);
-  const from = last?.periodTo != null ? last.periodTo + 1 : fallbackFrom;
+  const until = lastReportedUntil(db);
+  const from = until !== null ? until + 1 : fallbackFrom;
   return { from: Math.min(from, now), to: now };
 }

@@ -21,6 +21,8 @@
       "uncategorised": "No category",
       "returns": "Returned or cancelled",
       "cancelledOn": "Cancelled {{date}}",
+      "earlierSale": "sold before this report",
+      "earlierRefunded": "Refunded for sales in earlier reports",
       "noSales": "No sales in this period."
     },
     "payment": {

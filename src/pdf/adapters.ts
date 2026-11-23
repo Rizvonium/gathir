@@ -145,7 +145,14 @@ export function ownerReportDocFromData(
         ...(data.includeProfit ? { costPaise: i.costPaise ?? null, profitPaise: i.profitPaise ?? null } : {}),
       })),
     })),
-    returns: data.returns.map((r) => ({ billNo: r.billNo, createdAt: r.createdAt, cancelledAt: r.cancelledAt, totalPaise: r.totalPaise })),
+    returns: data.returns.map((r) => ({
+      billNo: r.billNo,
+      createdAt: r.createdAt,
+      cancelledAt: r.cancelledAt,
+      totalPaise: r.totalPaise,
+      earlierSale: r.earlierSale,
+    })),
+    earlierReturnsPaise: data.earlierReturnsPaise,
     customers: {
       newCustomers: data.customers.newCustomers.map((c) => ({ name: c.name, phone: c.phone, city: c.city, tag: c.tag })),
       topBySpend: data.customers.topBySpend.map((c) => ({

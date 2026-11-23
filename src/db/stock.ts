@@ -10,7 +10,7 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import { newId } from '@/lib/ids';
 
 import type { DbOrTx } from './types';
-import { colours, stockMoves, type StockReason } from './schema';
+import { colours, products, stockMoves, type StockReason } from './schema';
 
 export class StockError extends Error {
   constructor(
@@ -33,19 +33,30 @@ export type MoveInput = {
 
 /**
  * Apply one stock move inside an existing transaction (or the db).
- * Throws StockError('insufficient') if the count would go below zero.
- * Returns the new piece count.
+ * Throws StockError('insufficient') if the count would go below zero, and 'not_found' when pieces
+ * would be added to a deleted colour or design (they would vanish from stock): only a 'restored'
+ * move may do that. Returns the new piece count.
  */
 export function applyMove(tx: DbOrTx, input: MoveInput): number {
   if (!Number.isInteger(input.delta) || input.delta === 0) {
     throw new StockError('Stock change must be a non-zero whole number', 'invalid');
   }
   const colour = tx
-    .select({ id: colours.id, productId: colours.productId, pieces: colours.pieces })
+    .select({
+      id: colours.id,
+      productId: colours.productId,
+      pieces: colours.pieces,
+      colourDeletedAt: colours.deletedAt,
+      productDeletedAt: products.deletedAt,
+    })
     .from(colours)
+    .innerJoin(products, eq(products.id, colours.productId))
     .where(eq(colours.id, input.colourId))
     .get();
   if (!colour) throw new StockError('Colour not found', 'not_found');
+  if (input.delta > 0 && input.reason !== 'restored' && (colour.colourDeletedAt !== null || colour.productDeletedAt !== null)) {
+    throw new StockError('This design or colour was deleted', 'not_found');
+  }
 
   const next = colour.pieces + input.delta;
   if (next < 0) {

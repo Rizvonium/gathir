@@ -1,5 +1,5 @@
 /** Whole-database export/import for backup & restore (the media layer zips this with photos). */
-import { asc, getTableName } from 'drizzle-orm';
+import { getTableName, sql } from 'drizzle-orm';
 
 import {
   categories,
@@ -51,11 +51,15 @@ export type BackupData = {
   tables: Record<string, Row[]>;
 };
 
-/** Every row of every table as plain JSON-serialisable objects. */
+/**
+ * Every row of every table as plain JSON-serialisable objects, in insertion (rowid) order. Ids are
+ * random UUIDs, so ordering by id would shuffle rows that are read back by rowid (sale lines):
+ * import re-inserts in this order, so the restored rowids keep the original order.
+ */
 export function exportAllTables(db: DbOrTx, now: number = Date.now()): BackupData {
   const tables: Record<string, Row[]> = {};
   for (const t of TABLES) {
-    tables[getTableName(t)] = db.select().from(t).orderBy(asc(t.id)).all() as Row[];
+    tables[getTableName(t)] = db.select().from(t).orderBy(sql`rowid`).all() as Row[];
   }
   return { format: BACKUP_FORMAT, version: BACKUP_VERSION, exportedAt: now, tables };
 }

@@ -1,5 +1,5 @@
 /** View model for the owner's sales report PDF (docs/PLAN.md §7). Pure data, no rendering. */
-import { and, asc, eq, gte, isNull, lte, ne } from 'drizzle-orm';
+import { and, asc, eq, gte, isNull, lt, lte, ne } from 'drizzle-orm';
 
 import { colours, customerEvents, customers, products, sales, stockMoves, type CustomerTag, type PaymentMethod, type StockReason } from '../schema';
 import type { DbOrTx } from '../types';
@@ -92,8 +92,14 @@ export type OwnerReportData = {
   /** Null unless includeProfit. */
   profit: OwnerReportProfit | null;
   sales: OwnerReportSale[];
-  /** Sales in the period that were later returned/cancelled. */
-  returns: { saleId: string; billNo: string; createdAt: number; cancelledAt: number; totalPaise: number }[];
+  /**
+   * Sales made in the period that were returned/cancelled, and sales made BEFORE the period that
+   * were returned during it (`earlierSale`: their money was counted in an earlier report, so the
+   * owner learns about the refund here). Oldest return first.
+   */
+  returns: { saleId: string; billNo: string; createdAt: number; cancelledAt: number; totalPaise: number; earlierSale: boolean }[];
+  /** Money refunded in this period for sales made before it (already counted in earlier reports). */
+  earlierReturnsPaise: number;
   customers: {
     newCustomers: OwnerReportCustomer[];
     topBySpend: (OwnerReportCustomer & { spendPaise: number; purchases: number })[];
@@ -209,6 +215,24 @@ export function buildOwnerReportData(
     .all()
     .map((m) => ({ ...m, note: displayNote(m.note) }));
 
+  // Returns are chosen by when they happened too: a sale from an earlier report returned in this
+  // period must reach the owner (its 'returned' moves carry the sale id, so stockChanges skips them).
+  const returnedEarlier = db
+    .select()
+    .from(sales)
+    .where(and(lt(sales.createdAt, from), gte(sales.cancelledAt, from), lte(sales.cancelledAt, to)))
+    .all();
+  const returns = [...inPeriod.filter((s) => s.cancelledAt !== null), ...returnedEarlier]
+    .map((s) => ({
+      saleId: s.id,
+      billNo: s.billNo,
+      createdAt: s.createdAt,
+      cancelledAt: s.cancelledAt ?? 0,
+      totalPaise: s.totalPaise,
+      earlierSale: s.createdAt < from,
+    }))
+    .sort((a, b) => a.cancelledAt - b.cancelledAt || a.createdAt - b.createdAt);
+
   const level = settings.lowStockLevel;
   const stock: OwnerReportStockRow[] = loadLiveProducts(db, level)
     .map((p) => ({
@@ -235,9 +259,8 @@ export function buildOwnerReportData(
     summary: withoutProfit(summarise(db, live)),
     profit: includeProfit ? reportProfit(db, { from, to }) : null,
     sales: reportSales,
-    returns: inPeriod
-      .filter((s) => s.cancelledAt !== null)
-      .map((s) => ({ saleId: s.id, billNo: s.billNo, createdAt: s.createdAt, cancelledAt: s.cancelledAt ?? 0, totalPaise: s.totalPaise })),
+    returns,
+    earlierReturnsPaise: returns.filter((r) => r.earlierSale).reduce((sum, r) => sum + r.totalPaise, 0),
     customers: { newCustomers, topBySpend, cataloguesSent },
     stockChanges,
     stock,

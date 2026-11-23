@@ -26,6 +26,21 @@ export type DraftColour = {
   original: { name: string; hex: string; pieces: number; costPaise?: number | null } | null;
 };
 
+/** Product fields an edit can change, as saved (see ProductDraft.originalFields). */
+export type DraftProductFields = {
+  name: string;
+  categoryId: string | null;
+  craft: string;
+  material: string;
+  size: string;
+  ratePaise: number | null;
+  costPaise: number | null;
+  notes: string;
+  oneOfAKind: boolean;
+};
+
+export const PRODUCT_FIELD_KEYS = ['name', 'categoryId', 'craft', 'material', 'size', 'ratePaise', 'costPaise', 'notes', 'oneOfAKind'] as const;
+
 export type ProductDraft = {
   mode: 'new' | 'edit';
   productId: string | null;
@@ -47,6 +62,18 @@ export type ProductDraft = {
   stashedColours: DraftColour[];
   /** Saved colours the seller removed in this edit. */
   removedColourIds: string[];
+  /**
+   * The removed saved colours as they were, so picking the same colour again brings the saved one
+   * back (same id, pieces and buying price) instead of writing it off and making a new one.
+   * Optional so drafts kept from before this field still load.
+   */
+  removedColours?: DraftColour[];
+  /**
+   * Edit only: the product's saved fields this draft is based on. Save writes only the fields that
+   * differ from these, and rebaseEditDraft refreshes untouched fields from newer saved values.
+   * Optional so drafts kept from before this field still load.
+   */
+  originalFields?: DraftProductFields | null;
   updatedAt: number;
 };
 
@@ -80,6 +107,20 @@ export function emptyDraft(now: number = Date.now()): ProductDraft {
   };
 }
 
+function savedFields(p: ProductDetail['product']): DraftProductFields {
+  return {
+    name: p.name,
+    categoryId: p.categoryId,
+    craft: p.craft,
+    material: p.material,
+    size: p.size,
+    ratePaise: p.ratePaise,
+    costPaise: p.costPaise,
+    notes: p.notes,
+    oneOfAKind: p.oneOfAKind,
+  };
+}
+
 /** A draft that edits an existing product, starting from its saved values. */
 export function draftFromDetail(detail: ProductDetail, now: number = Date.now()): ProductDraft {
   const p = detail.product;
@@ -106,7 +147,79 @@ export function draftFromDetail(detail: ProductDetail, now: number = Date.now())
       costPaise: c.costPaise ?? null,
       original: { name: c.name, hex: c.hex, pieces: c.pieces, costPaise: c.costPaise ?? null },
     })),
+    originalFields: savedFields(p),
   };
+}
+
+/**
+ * Brings a kept edit draft up to date with the saved product (it may have changed since the draft
+ * was started: a sale, a restock, a colour removed elsewhere). Saved values the seller did not
+ * touch are replaced by the current ones; for piece counts the seller's own change is kept as a
+ * change on top of the current count. Colours deleted meanwhile drop out. Returns `d` itself when
+ * nothing changed. Idempotent.
+ */
+export function rebaseEditDraft(d: ProductDraft, detail: ProductDetail): ProductDraft {
+  if (d.mode !== 'edit' || d.productId !== detail.product.id) return d;
+  let changed = false;
+  const live = new Map(detail.colours.map((c) => [c.id, c]));
+
+  const rebaseColour = (c: DraftColour): DraftColour | null => {
+    if (!c.id || !c.original) return c;
+    const saved = live.get(c.id);
+    if (!saved) {
+      changed = true;
+      return null;
+    }
+    const o = c.original;
+    const savedCost = saved.costPaise ?? null;
+    const origCost = o.costPaise ?? null;
+    if (o.name === saved.name && o.hex === saved.hex && o.pieces === saved.pieces && origCost === savedCost) return c;
+    changed = true;
+    const cost = c.costPaise ?? null;
+    return {
+      ...c,
+      name: c.name.trim() === o.name ? saved.name : c.name,
+      hex: c.hex === o.hex ? saved.hex : c.hex,
+      costPaise: cost === origCost ? savedCost : cost,
+      pieces: Math.max(0, saved.pieces + (c.pieces - o.pieces)),
+      original: { name: saved.name, hex: saved.hex, pieces: saved.pieces, costPaise: savedCost },
+    };
+  };
+  const rebaseList = (list: DraftColour[]) => list.map(rebaseColour).filter((c): c is DraftColour => c !== null);
+
+  const colours = rebaseList(d.colours);
+  const stashedColours = rebaseList(d.stashedColours);
+  const removedColours = d.removedColours ? rebaseList(d.removedColours) : undefined;
+  const removedColourIds = d.removedColourIds.filter((id) => live.has(id));
+  if (removedColourIds.length !== d.removedColourIds.length) changed = true;
+
+  let fieldPatch: Partial<ProductDraft> = {};
+  const of = d.originalFields;
+  if (of) {
+    const now = savedFields(detail.product);
+    const stale = PRODUCT_FIELD_KEYS.filter((k) => of[k] !== now[k]);
+    if (stale.length > 0) {
+      changed = true;
+      const patch: Partial<DraftProductFields> = {};
+      for (const k of stale) {
+        // Untouched by the seller: follow the saved value. Touched: the seller's value wins.
+        if (d[k] === of[k]) (patch as Record<string, unknown>)[k] = now[k];
+      }
+      fieldPatch = { ...patch, originalFields: now };
+    }
+  }
+  if (!changed) return d;
+  return { ...d, ...fieldPatch, colours, stashedColours, removedColourIds, ...(removedColours ? { removedColours } : {}) };
+}
+
+/** Product fields that differ from what the edit started from (all of them when unknown). */
+export function changedProductFields<F extends DraftProductFields>(fields: F, original: DraftProductFields | null | undefined): Partial<F> {
+  if (!original) return fields;
+  const out: Partial<F> = {};
+  for (const k of PRODUCT_FIELD_KEYS) {
+    if (fields[k] !== original[k]) (out as Record<string, unknown>)[k] = fields[k];
+  }
+  return out;
 }
 
 const touch = (d: ProductDraft, patch: Partial<ProductDraft>): ProductDraft => ({ ...d, ...patch, updatedAt: Date.now() });
@@ -196,15 +309,25 @@ export function addColour(d: ProductDraft, name: string, hex: string): ProductDr
   const trimmed = name.trim();
   if (!trimmed || findColour(d, trimmed)) return d;
   const restored = d.stashedColours.find((c) => sameName(c.name, trimmed));
+  // A saved colour removed earlier in this edit comes back as it was (same id, pieces, price).
+  const unremoved = restored ? undefined : (d.removedColours ?? []).find((c) => sameName(c.name, trimmed));
   const colour: DraftColour = restored
     ? { ...restored, pieces: Math.max(1, restored.pieces) }
-    : { key: newColourKey(), id: null, name: trimmed, hex, pieces: 1, original: null };
+    : unremoved
+      ? unremoved
+      : { key: newColourKey(), id: null, name: trimmed, hex, pieces: 1, original: null };
   const stashedColours = restored ? d.stashedColours.filter((c) => c !== restored) : d.stashedColours;
+  const back: Partial<ProductDraft> = unremoved
+    ? {
+        removedColours: (d.removedColours ?? []).filter((c) => c !== unremoved),
+        removedColourIds: d.removedColourIds.filter((id) => id !== unremoved.id),
+      }
+    : {};
   if (d.oneOfAKind) {
     // Keep a single colour: the previous pick is put aside, not lost.
-    return touch(d, { colours: [{ ...colour, pieces: 1 }], stashedColours: [...d.colours, ...stashedColours] });
+    return touch(d, { ...back, colours: [{ ...colour, pieces: 1 }], stashedColours: [...d.colours, ...stashedColours] });
   }
-  return touch(d, { colours: [...d.colours, colour], stashedColours });
+  return touch(d, { ...back, colours: [...d.colours, colour], stashedColours });
 }
 
 export function removeColour(d: ProductDraft, key: string): ProductDraft {
@@ -213,6 +336,7 @@ export function removeColour(d: ProductDraft, key: string): ProductDraft {
   return touch(d, {
     colours: d.colours.filter((c) => c.key !== key),
     removedColourIds: colour.id ? [...d.removedColourIds, colour.id] : d.removedColourIds,
+    ...(colour.id ? { removedColours: [...(d.removedColours ?? []), colour] } : {}),
   });
 }
 

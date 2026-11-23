@@ -26,6 +26,18 @@ describe('owner report', () => {
     expect(html).toContain('Total ₹12,500');
     expect(html).toContain('Discount ₹500');
   });
+  it('lists returns of sales from earlier reports with the money refunded', () => {
+    const out = renderOwnerReportHtml({
+      ...ownerReport(),
+      returns: [{ billNo: 'B-2026-0003', createdAt: 1, cancelledAt: 2, totalPaise: 8500000, earlierSale: true }],
+      earlierReturnsPaise: 8500000,
+    });
+    expect(out).toContain('B-2026-0003');
+    expect(out).toContain('sold before this report');
+    expect(out).toContain('Refunded for sales in earlier reports');
+    expect(out).toContain('₹85,000');
+    expect(html).not.toContain('Refunded for sales in earlier reports');
+  });
   it('escapes customer names', () => {
     expect(html).not.toContain('<b>Shah</b>');
     expect(html).toContain('Mrs. &lt;b&gt;Shah&lt;/b&gt;');

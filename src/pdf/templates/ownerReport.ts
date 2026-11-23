@@ -60,9 +60,10 @@ function summarySection(doc: OwnerReportDoc, t: TFunction): string {
     ? `<h3>${e(t('summary.returns'))}</h3><table><tbody>${doc.returns
         .map(
           (r) =>
-            `<tr><td class="num">${e(r.billNo)}</td><td class="num">${e(when(r.createdAt))}</td><td class="num">${e(t('summary.cancelledOn', { date: formatDate(r.cancelledAt) }))}</td><td class="r num">${money(r.totalPaise)}</td></tr>`,
+            `<tr><td class="num">${e(r.billNo)}</td><td class="num">${e(when(r.createdAt))}${r.earlierSale ? ` · ${e(t('summary.earlierSale'))}` : ''}</td><td class="num">${e(t('summary.cancelledOn', { date: formatDate(r.cancelledAt) }))}</td><td class="r num">${money(r.totalPaise)}</td></tr>`,
         )
-        .join('')}</tbody></table>`
+        .join('')}</tbody></table>` +
+      (doc.earlierReturnsPaise > 0 ? `<p class="spaced">${e(t('summary.earlierRefunded'))}: <span class="num">${money(doc.earlierReturnsPaise)}</span></p>` : '')
     : '';
   const head = (first: string) =>
     `<thead><tr><th>${e(first)}</th><th class="r">${e(t('summary.colBills'))}</th><th class="r">${e(t('summary.colAmount'))}</th></tr></thead>`;

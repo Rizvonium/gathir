@@ -45,7 +45,7 @@ Schema version 2 (`drizzle/0001_profit_catalogues.sql`): `colours.cost_paise`, `
     `colours[].costPaise` do, so screens a customer may see keep the "hide" eye toggle. Profit counts only items with a
     buying price: always show `unknownCostItems` ("profit unknown"), never treat a missing cost as 0.
 13. **Undo a sale = `voidSale`, Return = `cancelSale`.** The Sell toast's Undo voids (sale removed, bill number freed when
-    it is the latest) within `VOID_WINDOW_MS` (2 min) and falls back to `cancelSale` after that. Sale detail "Return" stays
+    it is the latest) within `VOID_WINDOW_MS` (2 min) and falls back to `cancelSale` after that, or once the bill was sent. Sale detail "Return" stays
     `cancelSale` with its confirm sheet.
 14. **`Stepper` is controlled.** Every tap steps from `value`; to "reset" it, keep or set `value` (no `key` remount). Only a
     hold-to-repeat counts ahead of renders, starting from `value` when the hold starts.
@@ -144,7 +144,7 @@ CUSTOMER_EVENT_KINDS, PAYMENT_METHODS ('cash'|'upi'|'card'|'other'), REPORT_KIND
 - `StockError{code: 'not_found'|'insufficient'|'invalid'}`
 
 ### Stock — `@/db/stock` (the only code that changes piece counts)
-- `applyMove(tx, {colourId; delta; reason: StockReason; saleId?; note?; at?}): number` — inside your own transaction. `adjustStock(db, MoveInput)` wraps it in one.
+- `applyMove(tx, {colourId; delta; reason: StockReason; saleId?; note?; at?}): number` — inside your own transaction; refuses (`StockError('not_found')`) to add pieces to a deleted colour or design unless `reason` is `'restored'`. `adjustStock(db, MoveInput)` wraps it in one.
 - `recordRestock(db, colourId, qty, note='', at?): number` — "+" stepper.
 - `recordReduction(db, colourId, qty, reason: 'damaged'|'correction'|'returned_to_owner'|'sample', note='', at?): number` — "−" with reason chip. `REDUCTION_REASONS`.
 - `recordCorrection(db, colourId, actualCount, note='', at?): number` — "Counted wrong".
@@ -172,8 +172,8 @@ CUSTOMER_EVENT_KINDS, PAYMENT_METHODS ('cash'|'upi'|'card'|'other'), REPORT_KIND
 
 ### Sales — `@/db/repo/sales`
 - `createSale(db, {items: {colourId, qty, ratePaise}[], payment?, discountPaise?, customerId?, newCustomer?: {name, phone?}, note?, billNo?}, now?): {saleId, billNo, totalPaise, customerId}` — atomic; `StockError('insufficient')` rolls back; discount > subtotal → `RepoError('invalid')`; `newCustomer` reuses a customer with the same phone. Each item stores `costPaiseSnapshot` = colour cost ?? product cost ?? null at sale time.
-- `cancelSale(db, saleId, now?): boolean` — Return: pieces back with 'returned' moves, sale kept with `cancelledAt`; false if already cancelled.
-- `voidSale(db, saleId, now?): void` — true Undo within `VOID_WINDOW_MS` (2 min) of creation: a +qty `'correction'` move (note `VOID_NOTE` = 'sale voided', same `saleId`, so owner reports skip both) per sold move, then the sale and its items are deleted; the bill number is released only when it is the latest issued. `findCountDrift` stays empty. Throws `RepoError('not_found')`, or `'already_done'` when cancelled, already in an owner report, or too old (use `cancelSale`).
+- `cancelSale(db, saleId, now?): boolean` — Return: pieces back with 'returned' moves, sale kept with `cancelledAt`; false if already cancelled. A colour/design deleted since the sale is brought back into live stock with only the returned pieces (purged colours are skipped).
+- `voidSale(db, saleId, now?): void` — true Undo within `VOID_WINDOW_MS` (2 min) of creation: a +qty `'correction'` move (note `VOID_NOTE` = 'sale voided', same `saleId`, so owner reports skip both) per sold move, then the sale and its items are deleted; the bill number is released only when it is the latest issued; a walk-in customer created by this sale and used nowhere else is removed. `findCountDrift` stays empty. Throws `RepoError('not_found')`, or `'already_done'` when cancelled, already in an owner report, its bill was already sent (a 'bill' report record holds its saleId), or too old (use `cancelSale`).
 - `listSales(db, {from, to, payment?, customerId?, includeCancelled?=true}): SaleListRow[]` (newest first; `{id, billNo, createdAt, day, cancelledAt, payment, discountPaise, totalPaise, customerId, customerName, customerPhone, pieces, itemCount, items, profitPaise (null when any cost unknown), knownProfitPaise, unknownCostItems}`)
 - `getSale(db, id): {sale, items, customer, profit: SaleProfit} | null` · `salesSummary(db, {from, to}): {pieces, amountPaise, count, discountsPaise, byPayment, byCategory, profitPaise, knownCostPaise, knownRevenuePaise, marginPct, unknownCostItems}` · `summarise(db, sales)` · `profitOfSale(sale, items): SaleProfit` · `itemsBySale(db, ids)` · `unreportedSales(db, since?)`
 
@@ -212,12 +212,12 @@ CUSTOMER_EVENT_KINDS, PAYMENT_METHODS ('cash'|'upi'|'card'|'other'), REPORT_KIND
 - `buildCatalogueData(db, 'all'|{productIds}|{categoryId}, {hideSoldOut, showRates, showCounts}, now?): CatalogueData` — never cost. `CatalogueProduct.specialPrice?` and `CatalogueData.preparedFor? / customerId?` are set only by `buildCustomerCatalogueData`.
 - `buildOwnerReportData(db, {from, to, includeCustomerPhones, now?}): OwnerReportData` (stockChanges include 'opening' moves). `includeProfit` = `settings.reportIncludesProfit`; only then `profit: {summary, byProduct (top 10), byCategory, stockValueAtCostPaise, stockCostUnknownPieces}` is set and sales carry `profitPaise` and items `costPaise`/`profitPaise`. Otherwise `profit: null`, `summary` has no profit keys and no cost appears anywhere in the data.
 - `createReportRecord(db, {kind, periodFrom?, periodTo?, fileName?, customerId?, summary?, fingerprint?}, now?): {id, number}`
-- `markSent(db, id, at?)` / `unmarkSent(db, id)` (Undo) · `listReports(db, kind?)` · `lastOwnerReport(db)` · `sinceLastReportPeriod(db, now, fallbackFrom): {from, to}`
+- `markSent(db, id, at?)` / `unmarkSent(db, id)` (Undo) · `listReports(db, kind?)` · `lastOwnerReport(db)` (most recently sent) · `lastReportedUntil(db)` (max `periodTo` of sent owner reports) · `sinceLastReportPeriod(db, now, fallbackFrom): {from, to}` (starts after `lastReportedUntil`, so a Custom report for earlier days sent later never pulls it back). `buildOwnerReportData` `returns` also lists sales made before the period and returned during it (`earlierSale`, summed in `earlierReturnsPaise`).
 - `computeFingerprint(data): string` · `canonicalJson(v)` · `fewThreshold(level)`
 - `homeSummary(db, now, lowStockLevel): {totalPieces, designs, stockValuePaise (at rate), stockValueAtCostPaise, stockCostUnknownPieces, todayPieces, todayAmountPaise, yesterdayAmountPaise, todayProfitPaise, todayMarginPct, todayProfitUnknownItems, lowStock, soldOut, unreportedSalesCount, lastReportSentAt, followUpsDue}` (profit/cost fields seller-only)
 
 ### Backup data, sample data
-- `@/db/repo/backup`: `exportAllTables(db, now?): BackupData` · `importAllTables(db, data)` (validated, all-or-nothing) · `validateBackup(data)` · `BACKUP_FORMAT`, `BACKUP_VERSION` (= 2; includes `customer_catalogue_items` and the new columns). Version-1 backups still restore: a missing table is empty, missing columns get their default (`reportIncludesProfit` false, costs null → old sales show "profit unknown").
+- `@/db/repo/backup`: `exportAllTables(db, now?): BackupData` (rows in rowid order, so sale lines keep their order after a restore) · `importAllTables(db, data)` (validated, all-or-nothing) · `validateBackup(data)` · `BACKUP_FORMAT`, `BACKUP_VERSION` (= 2; includes `customer_catalogue_items` and the new columns). Version-1 backups still restore: a missing table is empty, missing columns get their default (`reportIncludesProfit` false, costs null → old sales show "profit unknown").
 - `@/db/sampleData`: `insertSampleData(db, now?)` · `clearSampleData(db): {products, sales, customers}` · `hasSampleData(db)` · `SAMPLE_ID_PREFIX`
 - `@/db/repo/constants`: `stockStatus(total, level)`, `swatchKeyFor(name, hex)`, `DAY_MS`, `RECENTLY_DELETED_DAYS = 30`
 

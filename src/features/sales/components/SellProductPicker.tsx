@@ -80,7 +80,7 @@ export function SellProductPicker({ search, onSearch, shown, total, lowStockLeve
                 <AppText variant="small" weight="semibold" numberOfLines={2}>
                   {row.name}
                 </AppText>
-                <PieceBadge count={row.totalPieces} lowThreshold={lowStockLevel} size="sm" />
+                <PieceBadge count={row.totalPieces} lowThreshold={lowStockLevel} size="sm" subjectId={row.id} />
               </PressableScale>
             );
           })}

@@ -11,7 +11,7 @@ import { useTheme } from '@/ui/theme';
 
 import { useStockActions } from '../hooks/useStockActions';
 import { useStockList } from '../hooks/useStockList';
-import { catalogueHref, editProductHref, productCardHref, productHref, sellHref } from '../logic/links';
+import { catalogueHref, editProductHref, productCardHref, productHref, sellHref, type StockListSeed } from '../logic/links';
 import { ProductGridCard } from './ProductGridCard';
 import { ProductRow } from './ProductRow';
 import { StockFilters } from './StockFilters';
@@ -21,11 +21,11 @@ const NEW_PRODUCT = '/product/new' as const;
 const DELETED = '/deleted' as const;
 
 /** Stock tab: photo grid / compact list with search, chips, sort, swipe rows and multi-select. */
-export function StockScreen() {
+export function StockScreen({ seed = null }: { seed?: StockListSeed | null } = {}) {
   const { colors, space, radius } = useTheme();
   const { t } = useTranslation('stock');
   const toast = useToast();
-  const list = useStockList();
+  const list = useStockList(seed);
   const focused = useIsFocused();
   const actions = useStockActions();
   const [sortOpen, setSortOpen] = useState(false);

@@ -57,6 +57,7 @@ const mockToast = jest.fn<string, [ToastOpts]>(() => 'id');
 jest.mock('@/ui/components/Toast', () => ({
   useToast: () => ({ show: mockToast, hide: jest.fn() }),
   ToastProvider: ({ children }: { children: ReactNode }) => children,
+  ToastOutlet: () => null,
 }));
 
 const summary = {

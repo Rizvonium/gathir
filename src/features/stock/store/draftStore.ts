@@ -1,7 +1,8 @@
 /**
  * Auto-saved add/edit drafts, kept in memory for the app session: leaving the wizard and
  * coming back finds the draft where it was. One draft for "new", one per edited product.
- * Cleared on save or discard.
+ * Cleared on save or discard. While a camera/gallery picker is open the draft is also written to
+ * app storage (logic/pendingPick), so it survives Android closing the app.
  */
 import { create } from 'zustand';
 

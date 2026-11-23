@@ -12,17 +12,17 @@ import { useTheme } from '@/ui/theme';
 import { useContactActions } from '../hooks/useContactActions';
 import { useCustomerList } from '../hooks/useCustomerList';
 import { useNow } from '../hooks/useNow';
-import { customerHref, deletedHref, newCustomerHref } from '../logic/links';
+import { customerHref, deletedHref, newCustomerHref, type CustomerListSeed } from '../logic/links';
 import { pickContact } from '../pickContact';
 import { CustomerFilters, CustomerSortSheet } from './CustomerFilters';
 import { CustomerRow } from './CustomerRow';
 
 /** Customers tab (PLAN §4.8): search, type chips, filters, sort, quick WhatsApp/Call, "+ Customer". */
-export function CustomersScreen() {
+export function CustomersScreen({ seed = null }: { seed?: CustomerListSeed | null } = {}) {
   const { colors, space } = useTheme();
   const { t } = useTranslation('customers');
   const toast = useToast();
-  const list = useCustomerList();
+  const list = useCustomerList(seed);
   const contact = useContactActions();
   const [sortOpen, setSortOpen] = useState(false);
   const now = useNow();

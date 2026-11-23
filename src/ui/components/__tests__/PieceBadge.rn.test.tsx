@@ -1,6 +1,9 @@
 import { screen } from '@testing-library/react-native';
 
+import { AppThemeProvider } from '@/ui/theme';
+
 import { PieceBadge } from '../PieceBadge';
+import { thumbnailTransition } from '../Thumbnail';
 import { stockStatusOf } from '../stockStatus';
 import { renderWithTheme } from './renderWithTheme';
 
@@ -31,5 +34,28 @@ describe('PieceBadge', () => {
     expect(stockStatusOf(2, 2)).toBe('low');
     expect(stockStatusOf(3, 2)).toBe('ok');
     expect(stockStatusOf(1, 0)).toBe('ok');
+  });
+
+  it('a recycled cell showing another product gets a fresh pill (no colour fade while scrolling)', async () => {
+    const ui = (id: string, count: number) => (
+      <AppThemeProvider>
+        <PieceBadge testID="badge" subjectId={id} count={count} lowThreshold={2} />
+      </AppThemeProvider>
+    );
+    const view = await renderWithTheme(<PieceBadge testID="badge" subjectId="a" count={0} lowThreshold={2} />);
+    const first = screen.getByTestId('badge');
+    // Same product crosses the low line: same view, so its colour cross-fades.
+    await view.rerender(ui('a', 1));
+    expect(screen.getByTestId('badge')).toBe(first);
+    // The cell is reused for another product: a new view, so the colour snaps.
+    await view.rerender(ui('b', 10));
+    expect(screen.getByTestId('badge')).not.toBe(first);
+    expect(screen.getByText('10 pieces')).toBeTruthy();
+  });
+
+  it('list thumbnails (recycled cells) appear without a fade; single images keep it', () => {
+    expect(thumbnailTransition(false, 'p1')).toBe(0);
+    expect(thumbnailTransition(false, undefined)).toBe(120);
+    expect(thumbnailTransition(true, undefined)).toBe(0);
   });
 });

@@ -29,7 +29,7 @@ function readUsage(): StorageUsage | null {
 export function useBackup() {
   const { t } = useTranslation('backup');
   const toast = useToast();
-  const lastBackupAt = useDbQuery((d) => readSettingsRow(d)?.lastBackupAt ?? null, []);
+  const lastBackupAt = useDbQuery((d) => readSettingsRow(d)?.lastBackupAt ?? null, [], { tables: ['shop_settings'] });
   const [phase, setPhase] = useState<BackupPhase>('idle');
   const [warning, setWarning] = useState(false);
   const [usage, setUsage] = useState<StorageUsage | null>(null);

@@ -21,5 +21,5 @@ export function useCategories(): Category[] {
 
 /** The shop's low-stock level (pass it to PieceBadge's lowThreshold). Re-reads after any write. */
 export function useLowStockLevel(): number {
-  return useDbQuery((d) => getLowStockLevel(d), []);
+  return useDbQuery((d) => getLowStockLevel(d), [], { tables: ['shop_settings'] });
 }

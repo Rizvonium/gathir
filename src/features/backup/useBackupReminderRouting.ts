@@ -6,6 +6,8 @@ import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 import { useEffect, useRef } from 'react';
 
+import { whenShowroomClosed } from '@/features/showroom/logic/session';
+
 /** True when a notification response is a tap on the backup reminder. Pure. */
 export function isBackupReminderResponse(response: Notifications.MaybeNotificationResponse): boolean {
   return response?.notification.request.content.data?.type === 'backup-reminder';
@@ -19,6 +21,7 @@ export function useBackupReminderRouting(): void {
     const id = response?.notification.request.identifier ?? null;
     if (!id || handled.current === id) return;
     handled.current = id;
-    router.push('/backup');
+    // Never over the Showroom (no PIN was asked): opens once the seller has left it.
+    whenShowroomClosed('notification', () => router.push('/backup'));
   }, [response]);
 }

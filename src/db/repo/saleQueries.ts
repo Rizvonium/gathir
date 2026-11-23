@@ -1,5 +1,5 @@
 /** Sales reads: list by period, one sale, period summary, sales not yet in an owner report. */
-import { and, asc, desc, eq, gte, inArray, isNull, lte, sql, type SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, isNull, lte, sql, type SQL } from 'drizzle-orm';
 
 import { startOfDay } from '@/lib/dates';
 
@@ -206,6 +206,15 @@ export function summarise(db: DbOrTx, list: Sale[]): SalesSummary {
     marginPct: profit.marginPct,
     unknownCostItems: profit.unknownCostItems,
   };
+}
+
+/**
+ * How many non-cancelled sales are not yet in a sent owner report (the Home badge). A count in
+ * SQL: unreportedSales() loads every such sale with its items, and for a seller who never sends
+ * reports that set only grows.
+ */
+export function countUnreportedSales(db: DbOrTx): number {
+  return db.select({ n: count() }).from(sales).where(and(isNull(sales.reportId), isNull(sales.cancelledAt))).get()?.n ?? 0;
 }
 
 /** Non-cancelled sales not yet included in a sent owner report (optionally only after a time), oldest first. */

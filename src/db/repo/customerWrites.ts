@@ -84,7 +84,8 @@ export function createCustomer(db: DbOrTx, input: CustomerInput, now: number = D
         id,
         name,
         phone,
-        whatsappOk: input.whatsappOk ?? true,
+        // Consent to catalogues is never assumed (PLAN §15): only an explicit yes counts.
+        whatsappOk: input.whatsappOk ?? false,
         city: input.city ?? '',
         address: input.address ?? '',
         tag: input.tag ?? 'regular',

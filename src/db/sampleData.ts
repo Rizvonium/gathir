@@ -118,7 +118,7 @@ export function insertSampleData(db: DbOrTx, now: number = Date.now()): { produc
     const customerIds = CUSTOMERS.map((c, i) =>
       createCustomer(
         tx,
-        { name: c.name, phone: c.phone, city: c.city, tag: c.tag, likes: { colours: c.colours, crafts: c.crafts } },
+        { name: c.name, phone: c.phone, whatsappOk: true, city: c.city, tag: c.tag, likes: { colours: c.colours, crafts: c.crafts } },
         addDays(now, -18) + i * HOUR,
         { id: `${SAMPLE_ID_PREFIX}${newId()}` },
       ),

@@ -1,7 +1,9 @@
 /**
  * "Send me this": the seller finds the customer (or adds them with just a number), the shawl is
  * saved to their likes, then a photo card or a small catalogue of everything they liked goes out.
- * Saved customers appear only after typing, so a browsing customer never sees the customer book.
+ * A browsing customer never sees the customer book (logic/sendSheet): with a PIN set, a saved
+ * customer appears only for their full number, or by name after the seller enters the PIN here.
+ * Numbers are never shown in full.
  */
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -12,22 +14,20 @@ import { useCustomers } from '@/db/hooks';
 import { addToCustomerCatalogue, removeFromCustomerCatalogue } from '@/db/repo/customerCatalogue';
 import type { ProductListRow } from '@/db/repo/productQueries';
 import { quickAddCustomer, recordLikedItems } from '@/features/catalogue/logic/record';
-import { formatPhone } from '@/lib/phone';
+import { PinVerifyPanel } from '@/features/lock/components/PinVerifyPanel';
 import { AppSheet, AppText, Button, ListRow, PhoneInput, playHaptic, TextField, useToast } from '@/ui/components';
 import { useTheme } from '@/ui/theme';
 
+import { maskedPhone, MIN_QUERY, sheetMatches } from '../logic/sendSheet';
 import { addLiked } from '../logic/showroom';
-
-/** Matches shown at most (a short list keeps the sheet calm). */
-const MAX_MATCHES = 5;
-/** Characters typed before any saved name is shown. */
-const MIN_QUERY = 2;
 
 export type Chosen = { id: string; name: string; likedIds: string[] };
 
 export type SendMeThisSheetProps = {
   product: ProductListRow | null;
   visible: boolean;
+  /** A PIN is set: name search needs it (default true, the safe side). */
+  pinSet?: boolean;
   onClose: () => void;
   /** Liked ids per customer for this Showroom session. */
   liked: Record<string, string[]>;
@@ -36,7 +36,7 @@ export type SendMeThisSheetProps = {
   onSendMini: (c: Chosen) => void;
 };
 
-export function SendMeThisSheet({ product, visible, onClose, liked, onLiked, onSendCard, onSendMini }: SendMeThisSheetProps) {
+export function SendMeThisSheet({ product, visible, pinSet = true, onClose, liked, onLiked, onSendCard, onSendMini }: SendMeThisSheetProps) {
   const { t } = useTranslation('showroom');
   const { space } = useTheme();
   const toast = useToast();
@@ -47,8 +47,15 @@ export function SendMeThisSheet({ product, visible, onClose, liked, onLiked, onS
   const [chosen, setChosen] = useState<Chosen | null>(null);
   /** Catalogue item id once this shawl is saved to the chosen customer's catalogue. */
   const [savedItem, setSavedItem] = useState<string | null>(null);
+  /** The seller entered the PIN in this sheet (forgotten when it closes). */
+  const [pinOk, setPinOk] = useState(false);
+  const [askingPin, setAskingPin] = useState(false);
+  const unlocked = !pinSet || pinOk;
   const q = query.trim();
-  const matches = useCustomers({ search: q || undefined, sort: 'recent' }).slice(0, MAX_MATCHES);
+  // Locked: load without a text filter and match the exact number (a trunk "0" or spaces still match).
+  const rows = useCustomers({ search: unlocked ? q || undefined : undefined, sort: 'recent' });
+  const matches = sheetMatches(rows, q, unlocked);
+  const searched = unlocked ? q.length >= MIN_QUERY : matches.length > 0 || q.replace(/\D/g, '').length >= 10;
 
   const reset = () => {
     setQuery('');
@@ -57,6 +64,8 @@ export function SendMeThisSheet({ product, visible, onClose, liked, onLiked, onS
     setPhone(null);
     setChosen(null);
     setSavedItem(null);
+    setPinOk(false);
+    setAskingPin(false);
   };
   const close = () => {
     reset();
@@ -153,6 +162,18 @@ export function SendMeThisSheet({ product, visible, onClose, liked, onLiked, onS
             onPress={saveToCatalogue}
           />
         </View>
+      ) : askingPin ? (
+        <View style={{ gap: space.sm }}>
+          <PinVerifyPanel
+            testID="sheet-pin"
+            title={t('sheet.pinTitle')}
+            onSuccess={() => {
+              setPinOk(true);
+              setAskingPin(false);
+            }}
+          />
+          <Button label={t('sheet.back')} variant="ghost" onPress={() => setAskingPin(false)} />
+        </View>
       ) : adding ? (
         <View style={{ gap: space.md }}>
           <PhoneInput testID="sheet-phone" label={t('sheet.phoneLabel')} value={phone ?? ''} autoFocus onChange={(e164) => setPhone(e164)} />
@@ -164,21 +185,30 @@ export function SendMeThisSheet({ product, visible, onClose, liked, onLiked, onS
         </View>
       ) : (
         <View style={{ gap: space.sm }}>
-          <TextField testID="sheet-search" label={t('sheet.search')} value={query} onChangeText={setQuery} autoCorrect={false} helper={t('sheet.searchHelper')} />
-          {q.length >= MIN_QUERY
-            ? matches.map((c) => (
-                <ListRow
-                  key={c.id}
-                  testID={`sheet-customer-${c.id}`}
-                  title={c.name}
-                  subtitle={c.phone ? formatPhone(c.phone) : undefined}
-                  chevron={false}
-                  onPress={() => choose(c.id, c.name)}
-                />
-              ))
-            : null}
-          {q.length >= MIN_QUERY && matches.length === 0 ? <AppText muted>{t('sheet.noMatch', { query: q })}</AppText> : null}
+          <TextField
+            testID="sheet-search"
+            label={unlocked ? t('sheet.search') : t('sheet.searchNumber')}
+            value={query}
+            onChangeText={setQuery}
+            autoCorrect={false}
+            keyboardType={unlocked ? 'default' : 'phone-pad'}
+            helper={unlocked ? t('sheet.searchHelper') : t('sheet.searchNumberHelper')}
+          />
+          {matches.map((c) => (
+            <ListRow
+              key={c.id}
+              testID={`sheet-customer-${c.id}`}
+              title={c.name}
+              subtitle={maskedPhone(c.phone)}
+              chevron={false}
+              onPress={() => choose(c.id, c.name)}
+            />
+          ))}
+          {searched && matches.length === 0 ? <AppText muted>{t(unlocked ? 'sheet.noMatch' : 'sheet.noNumberMatch', { query: q })}</AppText> : null}
           <Button testID="sheet-new" label={t('sheet.newCustomer')} icon="person-add" variant="tonal" fullWidth onPress={() => setAdding(true)} />
+          {unlocked ? null : (
+            <Button testID="sheet-unlock" label={t('sheet.byName')} icon="lock" variant="ghost" fullWidth onPress={() => setAskingPin(true)} />
+          )}
         </View>
       )}
     </AppSheet>

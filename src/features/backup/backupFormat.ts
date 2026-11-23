@@ -152,7 +152,8 @@ export function backupFileName(shopName: string, now: number): string {
 }
 
 /**
- * Assembles the zip in memory. Photos are stored without compression (JPEG does not shrink),
+ * Assembles the zip in memory (whole buffers: tests and small zips only; the app writes and
+ * reads backups with the streaming backupStream.ts, which produces the same layout). Photos are stored without compression (JPEG does not shrink),
  * JSON is deflated. Unsafe photo names are skipped.
  */
 export function assembleBackupZip(input: {
@@ -189,7 +190,7 @@ function unzipOrNull(bytes: Uint8Array, only?: (name: string) => boolean): Retur
 }
 
 /**
- * Reads and validates a backup zip. The manifest is checked before the photos are inflated,
+ * Reads and validates a backup zip held in memory (the app uses backupStream.readBackupZip). The manifest is checked before the photos are inflated,
  * so a wrong file fails fast. Photo entries with unsafe names (path traversal) are rejected.
  */
 export function parseBackupZip(bytes: Uint8Array, currentSchemaVersion: number): ParseResult {

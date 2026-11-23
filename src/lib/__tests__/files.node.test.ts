@@ -8,6 +8,7 @@ import {
   freshExportFile,
   isExpired,
   isSafeFileName,
+  isShareableUri,
   photoFile,
   photosDir,
 } from '@/lib/files';
@@ -75,5 +76,18 @@ describe('folders', () => {
     await new File(photosDir(), 'a.thumb.jpg').write(new Uint8Array(3));
     expect(dirUsage(photosDir(), (n) => !n.includes('.thumb.'))).toEqual({ bytes: 13, files: 1 });
     expect(dirUsage(new Directory('file:///doc/none'))).toEqual({ bytes: 0, files: 0 });
+  });
+});
+
+describe('isShareableUri', () => {
+  it('accepts only what the react-native-share FileProvider can serve', () => {
+    expect(isShareableUri('file:///cache/exports/a.pdf')).toBe(true);
+    expect(isShareableUri('content://media/external/images/1')).toBe(true);
+    // App photos (documents folder) would become a null attachment.
+    expect(isShareableUri('file:///doc/photos/a.jpg')).toBe(false);
+    expect(isShareableUri('file:///cache/../doc/photos/a.jpg')).toBe(false);
+    expect(isShareableUri('')).toBe(false);
+    expect(isShareableUri(null)).toBe(false);
+    expect(isShareableUri('https://example.com/a.jpg')).toBe(false);
   });
 });

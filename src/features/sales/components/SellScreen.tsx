@@ -66,12 +66,15 @@ export function SellScreen({ params }: { params: SellParams }) {
   const [showMore, setShowMore] = useState(() => c.state.discountPaise !== null || c.state.note !== '');
   const toastShown = useRef(false);
   const soldRef = useRef<SoldSale | null>(null);
+  const billSent = useRef(false);
 
-  // The "Sold … · Undo" toast appears on the screen underneath, however the sheet was closed.
+  // The "Sold … · Undo · Send bill" toast (PLAN §4.6) appears on the screen underneath, however
+  // the sheet was closed. A walk-in gets the bill from here (share sheet when there is no number).
   const announce = () => {
     const s = soldRef.current;
     if (!s || toastShown.current) return;
     toastShown.current = true;
+    const sendBillHere = !billSent.current;
     toast.show({
       message: soldMessage(t, s.lines, s.totalPaise),
       tone: 'success',
@@ -79,6 +82,7 @@ export function SellScreen({ params }: { params: SellParams }) {
       onAction: () => {
         if (c.undo(s.saleId)) toast.show({ message: t('sell.undone') });
       },
+      ...(sendBillHere ? { secondaryActionLabel: t('sell.sendBill'), onSecondaryAction: () => void bill.send(s.saleId) } : {}),
     });
   };
   const announceRef = useRef(announce);
@@ -109,7 +113,10 @@ export function SellScreen({ params }: { params: SellParams }) {
   const onSendBill = async () => {
     if (!sold) return;
     const outcome = await bill.send(sold.saleId);
-    if (outcome && (outcome.status === 'sent' || outcome.status === 'fallback_shared')) close();
+    if (outcome && (outcome.status === 'sent' || outcome.status === 'fallback_shared')) {
+      billSent.current = true;
+      close();
+    }
   };
 
   if (sold) {

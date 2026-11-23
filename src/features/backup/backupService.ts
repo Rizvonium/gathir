@@ -4,13 +4,13 @@
  * createBackup → one zip (manifest + data.json + photos) in the exports cache, then shareBackup.
  * pickAndRestoreBackup → document picker → validate → swap photos safely → import all tables.
  *
- * v1 note: fflate's zipSync/unzipSync work on whole buffers, so the zip and all photos are in
- * memory together (≈ photos size × 2). Fine for a few hundred MB on 3 GB phones; streaming zip
- * is a later improvement.
+ * Both directions stream (backupStream.ts): one photo is in memory at a time, written to the zip
+ * file (or the staging folder) before the next is read, with an await per photo so the JS thread
+ * keeps running. Photos run to hundreds of MB on a 3–4 GB phone (PLAN §8, §12).
  */
 import * as Application from 'expo-application';
 import * as DocumentPicker from 'expo-document-picker';
-import { File } from 'expo-file-system';
+import { File, FileMode } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 
 import { exportAllTables, importAllTables } from '@/db/repo/backup';
@@ -18,16 +18,9 @@ import { getSettings, updateSettings } from '@/db/repo/settings';
 import type { DbOrTx } from '@/db/types';
 import { cleanupOldExports, freshExportFile, isSafeFileName, photosDir } from '@/lib/files';
 
-import {
-  assembleBackupZip,
-  BACKUP_MIME,
-  backupFileName,
-  buildManifest,
-  parseBackupZip,
-  stampLastBackupAt,
-  type BackupCounts,
-} from './backupFormat';
-import { commitPhotoSwap, rollbackPhotoSwap, stagePhotos, swapInStagedPhotos } from './photoFolderSwap';
+import { BACKUP_MIME, backupFileName, buildManifest, stampLastBackupAt, type BackupCounts } from './backupFormat';
+import { readBackupZip, writeBackupZip, type ByteSource } from './backupStream';
+import { beginStaging, commitPhotoSwap, rollbackPhotoSwap, stagePhoto, swapInStagedPhotos } from './photoFolderSwap';
 import { CURRENT_SCHEMA_VERSION } from './schemaVersion';
 
 export type CreatedBackup = {
@@ -58,23 +51,42 @@ function errorMessage(e: unknown): string {
 }
 
 /** This phone's "PIN is set" flag, or null if settings cannot be read (restore goes on). */
-function readDevicePinFlag(db: DbOrTx): boolean | null {
+/** This phone's PIN flag and owner number, read before a restore replaces the settings row. */
+function readDeviceGuarded(db: DbOrTx): { pinHashSet: boolean; ownerWhatsapp: string } | null {
   try {
-    return getSettings(db).pinHashSet;
+    const s = getSettings(db);
+    return { pinHashSet: s.pinHashSet, ownerWhatsapp: s.ownerWhatsapp };
   } catch {
     return null;
   }
 }
 
-/** Reads every file of the photos folder as bytes (sequentially, to limit peak work). */
-async function readAllPhotos(): Promise<Map<string, Uint8Array>> {
-  const photos = new Map<string, Uint8Array>();
-  for (const entry of photosDir().list()) {
-    if (entry instanceof File && isSafeFileName(entry.name)) {
-      photos.set(entry.name, await entry.bytes());
-    }
-  }
-  return photos;
+/**
+ * Settings a restore must not take from the zip (pure):
+ * - `pinHashSet`: the PIN hash lives in this phone's secure store, not in the backup, so the flag
+ *   stays THIS phone's (else the lock could claim a PIN that does not exist here, or drop one);
+ * - `ownerWhatsapp` while this phone has a PIN: the owner number changes only with the PIN
+ *   (PLAN §3), and a backup zip is plain JSON anyone holding the phone could pick or edit.
+ */
+export function guardedSettingsPatch(
+  device: { pinHashSet: boolean; ownerWhatsapp: string } | null,
+  restored: { pinHashSet: boolean; ownerWhatsapp: string },
+): { pinHashSet?: boolean; ownerWhatsapp?: string } {
+  if (!device) return {};
+  const patch: { pinHashSet?: boolean; ownerWhatsapp?: string } = {};
+  if (restored.pinHashSet !== device.pinHashSet) patch.pinHashSet = device.pinHashSet;
+  if (device.pinHashSet && restored.ownerWhatsapp !== device.ownerWhatsapp) patch.ownerWhatsapp = device.ownerWhatsapp;
+  return patch;
+}
+
+/** Names of the files in the photos folder (read one at a time while the zip is written). */
+function listPhotoNames(): string[] {
+  const dir = photosDir();
+  if (!dir.exists) return [];
+  return dir
+    .list()
+    .filter((entry): entry is File => entry instanceof File && isSafeFileName(entry.name))
+    .map((entry) => entry.name);
 }
 
 /**
@@ -84,22 +96,32 @@ async function readAllPhotos(): Promise<Map<string, Uint8Array>> {
 export async function createBackup(db: DbOrTx, now: number = Date.now()): Promise<CreatedBackup> {
   cleanupOldExports(now);
   const data = stampLastBackupAt(exportAllTables(db, now), now);
-  const photos = await readAllPhotos();
+  const photoNames = listPhotoNames();
   const manifest = buildManifest({
     appVersion: Application.nativeApplicationVersion ?? '0.0.0',
     schemaVersion: CURRENT_SCHEMA_VERSION,
     createdAt: now,
     data,
-    photoFiles: photos.size,
+    photoFiles: photoNames.length,
   });
-  const zip = assembleBackupZip({ manifest, data, photos });
-  photos.clear();
 
   const file = freshExportFile(backupFileName(getSettings(db, now).shopName, now));
   file.create();
-  await file.write(zip);
+  const handle = file.open(FileMode.WriteOnly);
+  let sizeBytes: number;
+  try {
+    sizeBytes = await writeBackupZip(
+      { write: (chunk) => handle.writeBytes(chunk) },
+      { manifest, data, photoNames, readPhoto: (name) => new File(photosDir(), name).bytes() },
+    );
+  } catch (e) {
+    handle.close();
+    if (file.exists) file.delete();
+    throw e;
+  }
+  handle.close();
   updateSettings(db, { lastBackupAt: now }, now);
-  return { file, uri: file.uri, sizeBytes: zip.byteLength, counts: manifest.counts };
+  return { file, uri: file.uri, sizeBytes, counts: manifest.counts };
 }
 
 /**
@@ -118,34 +140,60 @@ export async function shareBackup(file: File | string, dialogTitle?: string): Pr
  * Replaces ALL data and photos. Photos are swapped back if the import fails.
  */
 export async function restoreBackupFromUri(db: DbOrTx, uri: string): Promise<RestoreResult> {
-  let bytes: Uint8Array;
+  let handle: ReturnType<File['open']>;
+  let size: number;
   try {
-    bytes = await new File(uri).bytes();
+    handle = new File(uri).open(FileMode.ReadOnly);
+    size = handle.size ?? 0;
   } catch (e) {
     return { ok: false, reason: 'invalid', message: `Could not read file: ${errorMessage(e)}` };
   }
+  const source: ByteSource = {
+    size,
+    read: (offset, length) => {
+      handle.offset = offset;
+      return handle.readBytes(length);
+    },
+  };
 
-  const parsed = parseBackupZip(bytes, CURRENT_SCHEMA_VERSION);
-  if (!parsed.ok) return parsed;
-
+  // Photos go straight from the zip into the staging folder, one at a time (nothing live is
+  // touched until the swap below).
+  let writeError: unknown = null;
+  let parsed: Awaited<ReturnType<typeof readBackupZip>>;
   try {
-    await stagePhotos(parsed.photos);
+    try {
+      beginStaging();
+    } catch (e) {
+      writeError = e;
+      throw e;
+    }
+    parsed = await readBackupZip(source, CURRENT_SCHEMA_VERSION, async (name, bytes) => {
+      try {
+        await stagePhoto(name, bytes);
+      } catch (e) {
+        writeError = e;
+        throw e;
+      }
+    });
   } catch (e) {
     rollbackPhotoSwap();
-    return { ok: false, reason: 'failed', message: `Could not write photos: ${errorMessage(e)}` };
+    if (writeError) return { ok: false, reason: 'failed', message: `Could not write photos: ${errorMessage(writeError)}` };
+    return { ok: false, reason: 'invalid', message: `Could not read file: ${errorMessage(e)}` };
+  } finally {
+    handle.close();
   }
-  parsed.photos.clear();
+  if (!parsed.ok) {
+    rollbackPhotoSwap();
+    return parsed;
+  }
 
-  // The PIN hash lives in this phone's secure store, not in the backup, so the restored
-  // settings must keep THIS phone's "PIN is set" flag (else the lock could claim a PIN that
-  // does not exist here, or silently drop one that does).
-  const devicePinSet = readDevicePinFlag(db);
+  // Keep THIS phone's PIN flag, and its owner number while a PIN guards it (guardedSettingsPatch).
+  const device = readDeviceGuarded(db);
   try {
     swapInStagedPhotos();
     importAllTables(db, parsed.data);
-    if (devicePinSet !== null && getSettings(db).pinHashSet !== devicePinSet) {
-      updateSettings(db, { pinHashSet: devicePinSet });
-    }
+    const patch = guardedSettingsPatch(device, getSettings(db));
+    if (Object.keys(patch).length > 0) updateSettings(db, patch);
   } catch (e) {
     rollbackPhotoSwap();
     const invalid = e instanceof Error && 'code' in e && e.code === 'invalid';

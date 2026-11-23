@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen } from '@testing-library/react-native';
 import { useState } from 'react';
 
 import { AppThemeProvider } from '@/ui/theme';
@@ -96,5 +96,58 @@ describe('Stepper', () => {
     await fireEvent.press(screen.getByLabelText('Add one, Red pieces'));
     expect(onChange).toHaveBeenLastCalledWith(10);
     expect(valueNow()).toBe(9);
+  });
+
+  describe('hold-to-repeat', () => {
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => jest.useRealTimers());
+
+    it('without onHoldCommit, calls onChange on every step', async () => {
+      const onChange = jest.fn();
+      await renderWithTheme(<Harness initial={2} onChange={onChange} />);
+      const plus = screen.getByLabelText('Add one, Red pieces');
+      await fireEvent(plus, 'longPress');
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+      await fireEvent(plus, 'pressOut');
+      expect(onChange.mock.calls.length).toBeGreaterThan(3);
+    });
+
+    it('with onHoldCommit, counts on the stepper and commits once when the finger lifts', async () => {
+      const onChange = jest.fn();
+      const onHoldCommit = jest.fn();
+      await renderWithTheme(
+        <Stepper testID="stepper" accessibilityLabel="Red pieces" value={2} onChange={onChange} onHoldCommit={onHoldCommit} />,
+      );
+      const plus = screen.getByLabelText('Add one, Red pieces');
+      await fireEvent(plus, 'longPress');
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+      const shownWhileHeld = valueNow();
+      expect(shownWhileHeld).toBeGreaterThan(5);
+      expect(onChange).not.toHaveBeenCalled();
+      expect(onHoldCommit).not.toHaveBeenCalled();
+      await fireEvent(plus, 'pressOut');
+      expect(onHoldCommit).toHaveBeenCalledTimes(1);
+      expect(onHoldCommit).toHaveBeenCalledWith(shownWhileHeld);
+      // The stepper is controlled again: it shows the value prop until the parent passes the new count.
+      expect(valueNow()).toBe(2);
+      // No more ticks after the finger lifts.
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+      expect(onHoldCommit).toHaveBeenCalledTimes(1);
+    });
+
+    it('a plain tap with onHoldCommit still calls onChange and commits nothing', async () => {
+      const onChange = jest.fn();
+      const onHoldCommit = jest.fn();
+      await renderWithTheme(<Stepper accessibilityLabel="Red pieces" value={2} onChange={onChange} onHoldCommit={onHoldCommit} />);
+      await fireEvent.press(screen.getByLabelText('Add one, Red pieces'));
+      expect(onChange).toHaveBeenCalledWith(3);
+      expect(onHoldCommit).not.toHaveBeenCalled();
+    });
   });
 });

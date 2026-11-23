@@ -13,33 +13,47 @@ import { useTheme } from '@/ui/theme';
 import { useCatalogueSend, type SendPhase } from '../hooks/useCatalogueSend';
 import { useCustomerBrief } from '../hooks/useCustomerBrief';
 import { useExitFlow } from '../hooks/useExitFlow';
+import { needsConsentCheck } from '../logic/consent';
 import type { Recipient } from '../logic/recipient';
+import { useCatalogueFlow } from '../store';
+import { NoConsentSheet } from './NoConsentSheet';
 import { RecipientPicker } from './RecipientPicker';
 
 export function SendStep({ toCustomerId }: { toCustomerId?: string }) {
   const { t } = useTranslation('catalogue');
+  const { space } = useTheme();
   const exit = useExitFlow();
   const s = useCatalogueSend();
-  const preset = useCustomerBrief(toCustomerId);
+  // Their own catalogue (their special rates) is locked to them: no picker, no "someone else".
+  const flowOwner = useCatalogueFlow((f) => (f.source.kind === 'customer' ? f.customerId : null));
+  const lockedTo = s.lockedTo ?? flowOwner;
+  const locked = lockedTo !== null;
+  const preset = useCustomerBrief(lockedTo ?? toCustomerId);
   const autoSent = useRef(false);
+  // She said no to catalogues: the seller is asked once ("Send anyway" or not) instead.
+  const [consentAnswered, setConsentAnswered] = useState(false);
+  const askConsent = !!preset && needsConsentCheck(preset) && !consentAnswered && s.status === 'ready' && s.phase.kind === 'choose';
+  const sendPreset = () => {
+    if (preset) void s.send({ kind: 'customer', id: preset.id, name: preset.name, phone: preset.phone });
+  };
 
   // "Send to Mrs Shah" on the preview: go straight to her chat once the catalogue is ready.
   useEffect(() => {
-    if (preset && !autoSent.current && s.status === 'ready' && s.phase.kind === 'choose') {
+    if (preset && !needsConsentCheck(preset) && !autoSent.current && s.status === 'ready' && s.phase.kind === 'choose') {
       autoSent.current = true;
       void s.send({ kind: 'customer', id: preset.id, name: preset.name, phone: preset.phone });
     }
   }, [preset, s]);
 
   if (s.phase.kind === 'done') {
-    return <SendDone phase={s.phase} onNextPart={s.sendNextPart} onAnother={s.sendAnother} onFinish={exit} />;
+    return <SendDone phase={s.phase} onNextPart={s.sendNextPart} onAnother={locked ? undefined : s.sendAnother} onFinish={exit} />;
   }
 
   const working = s.phase.kind === 'working';
   return (
     <Screen
       title={t('send.title')}
-      subtitle={t('send.subtitle')}
+      subtitle={locked ? undefined : t('send.subtitle')}
       leading={<IconButton icon="arrow-back" accessibilityLabel={t('flow.back')} onPress={() => router.back()} disabled={working} />}
       actions={<IconButton icon="close" accessibilityLabel={t('flow.close')} onPress={exit} disabled={working} />}>
       {s.status === 'error' ? (
@@ -52,7 +66,32 @@ export function SendStep({ toCustomerId }: { toCustomerId?: string }) {
         />
       ) : (
         <View style={styles.flex}>
-          <RecipientPicker onPick={(r) => void s.send(r)} disabled={working || s.status !== 'ready'} />
+          {locked ? (
+            <View style={[styles.flex, styles.center, { gap: space.lg, padding: space.lg }]} testID="send-locked">
+              {preset ? <AppText align="center">{t('send.lockedNote', { name: preset.name })}</AppText> : null}
+              {preset ? (
+                <Button
+                  testID="send-locked-retry"
+                  label={needsConsentCheck(preset) ? t('preview.sendTo', { name: preset.name }) : t('send.tryAgainTo', { name: preset.name })}
+                  icon="send"
+                  size="lg"
+                  fullWidth
+                  disabled={working || s.status !== 'ready'}
+                  onPress={() => (needsConsentCheck(preset) ? setConsentAnswered(false) : sendPreset())}
+                />
+              ) : null}
+            </View>
+          ) : (
+            <RecipientPicker onPick={(r) => void s.send(r)} disabled={working || s.status !== 'ready'} />
+          )}
+          <NoConsentSheet
+            name={askConsent && preset ? preset.name : null}
+            onCancel={() => setConsentAnswered(true)}
+            onSend={() => {
+              setConsentAnswered(true);
+              sendPreset();
+            }}
+          />
           {working || s.status === 'loading' ? (
             <WorkingOverlay label={s.phase.kind === 'working' && s.phase.step === 'opening' ? t('send.opening') : t('send.making')} />
           ) : null}
@@ -89,7 +128,8 @@ export function SendDone({
 }: {
   phase: Extract<SendPhase, { kind: 'done' }>;
   onNextPart: () => void;
-  onAnother: () => void;
+  /** Omitted for a personal catalogue: it goes to its customer only. */
+  onAnother?: () => void;
   onFinish: () => void;
 }) {
   const { t } = useTranslation('catalogue');
@@ -113,6 +153,7 @@ export function SendDone({
               onPress={onNextPart}
             />
           ) : null}
+          {onAnother ? (
           <Button
             testID="done-another"
             label={t('done.another')}
@@ -122,7 +163,15 @@ export function SendDone({
             fullWidth
             onPress={onAnother}
           />
-          <Button testID="done-finish" label={t('done.finish')} variant="ghost" size="lg" fullWidth onPress={onFinish} />
+          ) : null}
+          <Button
+            testID="done-finish"
+            label={t('done.finish')}
+            variant={onAnother || morePartsLeft ? 'ghost' : 'primary'}
+            size="lg"
+            fullWidth
+            onPress={onFinish}
+          />
         </>
       }>
       <View style={[styles.flex, styles.center, { gap: space.lg }]} accessibilityLiveRegion="polite">

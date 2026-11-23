@@ -28,8 +28,10 @@ jest.mock('@/db/stock', () => ({
 }));
 
 const mockRows: { current: ProductListRow[] } = { current: [] };
+const mockAnyProducts: { current: boolean | null } = { current: null };
 jest.mock('@/db/hooks', () => ({
   useProducts: () => mockRows.current,
+  useHasAnyProduct: () => mockAnyProducts.current ?? mockRows.current.length > 0,
   useLowStockLevel: () => 1,
   useCategories: () => [{ id: 'cat-1', name: 'Stoles', icon: 'gesture', sortOrder: 0, isDefault: true, createdAt: 0, updatedAt: 0 }],
 }));
@@ -115,14 +117,29 @@ describe('StockScreen', () => {
 
   it('shows a filtered-empty state that clears filters', async () => {
     mockRows.current = [];
-    // anyProducts comes from the same hook in this test, so give the unfiltered call a row.
+    mockAnyProducts.current = true;
     const hooks = jest.requireMock('@/db/hooks') as { useProducts: (f: object) => ProductListRow[] };
-    const spy = jest.spyOn(hooks, 'useProducts').mockImplementation((f: { filter?: string }) => (f && 'filter' in f ? [] : [row('a', 'X', [])]));
-    await render();
-    await fireEvent.changeText(screen.getByLabelText('Search stock'), 'zzz');
-    expect(screen.getByText('Nothing matches')).toBeOnTheScreen();
-    await fireEvent.press(screen.getByText('Clear search and filters'));
-    expect(screen.getByLabelText('Search stock').props.value).toBe('');
+    const spy = jest.spyOn(hooks, 'useProducts');
+    try {
+      await render();
+      await fireEvent.changeText(screen.getByLabelText('Search stock'), 'zzz');
+      expect(screen.getByText('Nothing matches')).toBeOnTheScreen();
+      await fireEvent.press(screen.getByText('Clear search and filters'));
+      expect(screen.getByLabelText('Search stock').props.value).toBe('');
+      // "Any products at all?" is its own EXISTS query, not a second unfiltered stock list.
+      expect(spy.mock.calls.every(([f]) => 'filter' in (f as object))).toBe(true);
+    } finally {
+      spy.mockRestore();
+      mockAnyProducts.current = null;
+    }
+  });
+
+  it('opened from Home\'s "See all" needs attention: starts on that filter and fewest pieces first', async () => {
+    const hooks = jest.requireMock('@/db/hooks') as { useProducts: (f: object) => ProductListRow[] };
+    const spy = jest.spyOn(hooks, 'useProducts');
+    const { stockListSeed } = jest.requireActual('../logic/links') as typeof import('../logic/links');
+    await renderScreen(<StockScreen seed={stockListSeed({ filter: 'low', sort: 'least', at: '1' })} />);
+    expect(spy).toHaveBeenCalledWith(expect.objectContaining({ filter: 'low', sort: 'least' }));
     spy.mockRestore();
   });
 });

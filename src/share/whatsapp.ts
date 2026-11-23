@@ -3,13 +3,20 @@
  * Primary path: react-native-share `shareSingle` straight into a chat (WhatsApp or Business).
  * Fallback: the Android share sheet (expo-sharing), with the phone number copied to the
  * clipboard so the seller can paste it. Nothing here throws: every function returns a status.
+ *
+ * On Android `shareSingle` resolves `{ success: true }` the moment WhatsApp is launched
+ * (SingleShareIntent: startActivity, then resolve), long before the seller sends anything. So a
+ * successful launch is never taken as "done": the functions below resolve only once the seller
+ * has come back to Gathir (AppState background → active). Callers mark things sent and show
+ * their Undo toast at that point, while the seller is looking at the app.
  */
 import * as Clipboard from 'expo-clipboard';
 import * as Sharing from 'expo-sharing';
-import { Linking } from 'react-native';
+import { AppState, Linking } from 'react-native';
 import Share, { Social, type ShareSingleOptions } from 'react-native-share';
 
 import { chunk } from '@/pdf/html';
+import { isShareableUri, shareableUri } from '@/lib/files';
 import { toWhatsAppNumber } from '@/lib/phone';
 
 export const WHATSAPP_PACKAGE = 'com.whatsapp';
@@ -68,6 +75,70 @@ export function whatsAppChatUrl(phone: string | null | undefined, text?: string)
   return `https://wa.me/${digits}${query}`;
 }
 
+/** How long WhatsApp gets to come up (Gathir leaving the foreground) after the launch. */
+export const LEAVE_TIMEOUT_MS = 4000;
+
+type ReturnWatch = {
+  /** Resolves 'returned' once Gathir left the foreground and is active again, or 'stayed' when it never left. */
+  untilBack: () => Promise<'returned' | 'stayed'>;
+  stop: () => void;
+};
+
+/**
+ * Starts listening before WhatsApp is launched (the app can leave the foreground before the
+ * launch promise resolves). Once it has left, waits as long as the seller stays in WhatsApp.
+ */
+function watchLeaveAndReturn(leaveTimeoutMs: number = LEAVE_TIMEOUT_MS): ReturnWatch {
+  let left = false;
+  let outcome: 'returned' | 'stayed' | null = null;
+  let settle: ((v: 'returned' | 'stayed') => void) | null = null;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const finish = (v: 'returned' | 'stayed') => {
+    if (outcome) return;
+    outcome = v;
+    clearTimeout(timer);
+    sub.remove();
+    settle?.(v);
+  };
+  const sub = AppState.addEventListener('change', (state) => {
+    if (state === 'active') {
+      if (left) finish('returned');
+    } else {
+      left = true;
+      clearTimeout(timer);
+    }
+  });
+  return {
+    untilBack: () =>
+      new Promise((resolve) => {
+        if (outcome) {
+          resolve(outcome);
+          return;
+        }
+        settle = resolve;
+        if (!left) timer = setTimeout(() => finish('stayed'), leaveTimeoutMs);
+      }),
+    stop: () => finish('stayed'),
+  };
+}
+
+/** Launches WhatsApp and resolves only when the seller is back in Gathir. */
+async function shareAndWaitForReturn(options: WhatsAppShareOptions): Promise<{ success: boolean }> {
+  const watch = watchLeaveAndReturn();
+  try {
+    const result = await Share.shareSingle(options);
+    if (!result.success) {
+      watch.stop();
+      return { success: false };
+    }
+    await watch.untilBack();
+    return { success: true };
+  } catch (e) {
+    watch.stop();
+    throw e;
+  }
+}
+
 function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
@@ -113,10 +184,18 @@ export type ShareFileOptions = {
 
 /**
  * Sends one file to WhatsApp, straight into the chat when a phone number is given.
- * 'sent' means WhatsApp opened with the file (we cannot see whether the user pressed send).
+ * 'sent' means WhatsApp opened with the file and the seller has since come back to Gathir (we
+ * cannot see whether they pressed send, so callers offer Undo at that moment).
  * Falls back to the share sheet ('fallback_shared', number copied) when WhatsApp is missing or fails.
  */
-export async function shareFileToWhatsApp(opts: ShareFileOptions): Promise<ShareResult> {
+export async function shareFileToWhatsApp(input: ShareFileOptions): Promise<ShareResult> {
+  let opts = input;
+  try {
+    opts = { ...input, fileUri: await shareableUri(input.fileUri) };
+    if (!isShareableUri(opts.fileUri)) return { status: 'error', error: `Not shareable: ${input.fileUri}` };
+  } catch (e) {
+    return { status: 'error', error: errorMessage(e) };
+  }
   const digits = whatsAppDigits(opts.phoneE164);
   const target = chooseWhatsAppTarget(await detectWhatsApp(), opts.prefer ?? 'auto');
   if (!target) return fallbackShare(opts.fileUri, opts.mimeType, digits, opts.dialogTitle);
@@ -130,7 +209,7 @@ export async function shareFileToWhatsApp(opts: ShareFileOptions): Promise<Share
     ...(digits ? { whatsAppNumber: digits } : {}),
   };
   try {
-    const result = await Share.shareSingle(options);
+    const result = await shareAndWaitForReturn(options);
     return { status: result.success ? 'sent' : 'dismissed' };
   } catch (e) {
     if (isUserCancel(e)) return { status: 'dismissed' };
@@ -149,11 +228,25 @@ export type ShareImagesOptions = {
 };
 
 /**
- * "Also send photos": shares images in batches of 30 (WhatsApp's limit), one batch after another.
- * Stops at the first batch that is not sent. `batchesSent` says how far it got.
+ * "Also send photos": shares images in batches of 30 (WhatsApp's limit), one batch after another:
+ * the next batch opens only after the seller is back from the previous one. Every photo is first
+ * made reachable for WhatsApp (copied into the cache); one that cannot be is an 'error', never a
+ * silent empty attachment. Stops at the first batch that is not sent. `batchesSent` says how far it got.
  */
 export async function shareImagesToWhatsApp(opts: ShareImagesOptions): Promise<ShareResult & { batchesSent: number; batches: number }> {
-  const batches = chunk(opts.urls, WHATSAPP_MAX_MEDIA);
+  let urls: string[];
+  try {
+    // App photos live in the documents folder, which the share FileProvider does not serve.
+    urls = [];
+    for (const u of opts.urls) {
+      const shareable = await shareableUri(u);
+      if (!isShareableUri(shareable)) throw new Error(`Not shareable: ${u}`);
+      urls.push(shareable);
+    }
+  } catch (e) {
+    return { status: 'error', error: errorMessage(e), batchesSent: 0, batches: chunk(opts.urls, WHATSAPP_MAX_MEDIA).length };
+  }
+  const batches = chunk(urls, WHATSAPP_MAX_MEDIA);
   if (batches.length === 0) return { status: 'sent', batchesSent: 0, batches: 0 };
   const target = chooseWhatsAppTarget(await detectWhatsApp(), opts.prefer ?? 'auto');
   if (!target) return { status: 'unavailable', batchesSent: 0, batches: batches.length };
@@ -169,7 +262,7 @@ export async function shareImagesToWhatsApp(opts: ShareImagesOptions): Promise<S
       ...(digits ? { whatsAppNumber: digits } : {}),
     };
     try {
-      const result = await Share.shareSingle(options);
+      const result = await shareAndWaitForReturn(options);
       if (!result.success) return { status: 'dismissed', batchesSent: sent, batches: batches.length };
       sent++;
     } catch (e) {

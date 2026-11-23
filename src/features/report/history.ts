@@ -48,3 +48,12 @@ export function sentReports(reports: readonly Report[]): HistoryRow[] {
     }))
     .sort((a, b) => b.sentAt - a.sentAt);
 }
+
+/**
+ * "Make again": the report screen on the same dates. `at` makes each tap a new visit, so the
+ * screen applies the dates even when it is already open underneath with the same ones.
+ */
+export function makeAgainParams(row: Pick<HistoryRow, 'from' | 'to'>, at: number = Date.now()): { from: string; to: string; at: string } | null {
+  if (row.from === null || row.to === null) return null;
+  return { from: String(row.from), to: String(row.to), at: String(at) };
+}

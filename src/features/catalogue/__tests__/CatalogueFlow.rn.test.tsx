@@ -35,8 +35,9 @@ const mockTheirs = [
   { id: 'i3', productId: 'gone', name: 'Old shawl', ratePaise: 650_000, totalPieces: 0, coverThumb: null, productDeleted: true },
 ];
 const mockCustomers = [
-  { id: 'c1', name: 'Mrs Shah', phone: '+919876543210', city: 'Srinagar' },
-  { id: 'c2', name: 'Rafiq Dar', phone: null, city: '' },
+  { id: 'c1', name: 'Mrs Shah', phone: '+919876543210', city: 'Srinagar', whatsappOk: true },
+  { id: 'c2', name: 'Rafiq Dar', phone: null, city: '', whatsappOk: true },
+  { id: 'c3', name: 'Nadia Wani', phone: '+919811111111', city: '', whatsappOk: false },
 ];
 const mockSettings = { catalogueOptionsJson: JSON.stringify({ title: 'Winter collection', showRates: true }), catalogueStyle: 'bazaar' };
 jest.mock('@/db/client', () => ({ db: {} }));
@@ -170,6 +171,38 @@ describe('Recipient picker', () => {
 
     await fireEvent.press(screen.getByTestId('recipient-chat'));
     expect(onPick).toHaveBeenLastCalledWith({ kind: 'chat' });
+  });
+
+  it('asks before sending to a customer who said no to catalogues ("Send anyway"), never one tap', async () => {
+    const onPick = jest.fn();
+    await renderWithTheme(<RecipientPicker onPick={onPick} />);
+    expect(screen.getByText('Does not want catalogues')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('recipient-c3'));
+    expect(onPick).not.toHaveBeenCalled();
+    expect(screen.getByText('Nadia Wani said no to catalogues')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('consent-cancel'));
+    expect(onPick).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByTestId('recipient-c3'));
+    await fireEvent.press(screen.getByTestId('consent-send-anyway'));
+    expect(onPick).toHaveBeenCalledWith({ kind: 'customer', id: 'c3', name: 'Nadia Wani', phone: '+919811111111' });
+  });
+
+  it('over the Showroom: no customer book, no search, no chat list; only a typed number', async () => {
+    const session = jest.requireActual('@/features/showroom/logic/session') as typeof import('@/features/showroom/logic/session');
+    const exit = session.enterShowroom();
+    try {
+      const onPick = jest.fn();
+      await renderWithTheme(<RecipientPicker onPick={onPick} />);
+      expect(screen.queryByText('Mrs Shah')).toBeNull();
+      expect(screen.queryByText('Nadia Wani')).toBeNull();
+      expect(screen.queryByLabelText('Find a customer')).toBeNull();
+      expect(screen.queryByTestId('recipient-chat')).toBeNull();
+      await fireEvent.changeText(screen.getByLabelText('WhatsApp number'), '98765 43210');
+      await fireEvent.press(screen.getByTestId('recipient-send-number'));
+      expect(onPick).toHaveBeenCalledWith({ kind: 'number', phone: '+919876543210' });
+    } finally {
+      exit();
+    }
   });
 
   it('filters customers and explains an empty search', async () => {

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 
@@ -15,6 +15,12 @@ export type RollingNumberProps = {
   weight?: TextWeight;
   tone?: keyof ColorTokens;
   color?: string;
+  /**
+   * What the number is a total of (e.g. the selected period and payment filter). When it changes,
+   * the digits jump to the new value instead of rolling: switching between peer filters is a
+   * frequent action and does not animate; a new value for the same filter (a sale) still rolls.
+   */
+  snapKey?: string | number;
   /** Set false when a parent already announces the value (e.g. Stepper). Default true. */
   accessible?: boolean;
   /** TalkBack label; defaults to the formatted value. */
@@ -39,6 +45,7 @@ export function RollingNumber({
   weight,
   tone,
   color,
+  snapKey,
   accessible = true,
   accessibilityLabel,
   testID,
@@ -58,7 +65,7 @@ export function RollingNumber({
         const fromEnd = chars.length - i;
         const isDigit = ch >= '0' && ch <= '9';
         return isDigit ? (
-          <DigitColumn key={`${fromEnd}-d`} digit={Number(ch)} look={look} />
+          <DigitColumn key={`${fromEnd}-d`} digit={Number(ch)} snapKey={snapKey} look={look} />
         ) : (
           <AppText key={`${fromEnd}-${ch}`} {...look} numeric importantForAccessibility="no">
             {ch}
@@ -69,13 +76,20 @@ export function RollingNumber({
   );
 }
 
-function DigitColumn({ digit, look }: { digit: number; look: TextLook }) {
+function DigitColumn({ digit, snapKey, look }: { digit: number; snapKey: string | number | undefined; look: TextLook }) {
   const position = useSharedValue(digit);
   const cellHeight = useSharedValue(0);
+  const shownFor = useRef(snapKey);
 
   useEffect(() => {
-    position.set(withTiming(digit, timing.count));
-  }, [digit, position]);
+    if (shownFor.current !== snapKey) {
+      // Another filter: jump (no odometer on peer switches).
+      shownFor.current = snapKey;
+      position.set(digit);
+    } else {
+      position.set(withTiming(digit, timing.count));
+    }
+  }, [digit, snapKey, position]);
 
   const onLayout = (e: LayoutChangeEvent) => cellHeight.set(e.nativeEvent.layout.height);
 

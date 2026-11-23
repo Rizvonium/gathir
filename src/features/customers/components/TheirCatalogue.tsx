@@ -195,7 +195,7 @@ function ItemRow({
             </AppText>
           </View>
         ) : (
-          <PieceBadge count={row.totalPieces} lowThreshold={lowStockLevel} size="sm" style={styles.badge} />
+          <PieceBadge count={row.totalPieces} lowThreshold={lowStockLevel} size="sm" subjectId={row.id} style={styles.badge} />
         )}
         {row.note ? (
           <AppText variant="small" muted numberOfLines={2}>

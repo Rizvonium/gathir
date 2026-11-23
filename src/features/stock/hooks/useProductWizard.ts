@@ -2,8 +2,9 @@
  * Add / Edit product wizard: draft (auto-saved in the draft store), photo picking, step
  * navigation, inline validation and Save. Screens render; this hook decides.
  */
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { BackHandler } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { db } from '@/db/client';
@@ -29,6 +30,7 @@ import {
 } from '../logic/draft';
 import { productHref } from '../logic/links';
 import { suggestNames } from '../logic/naming';
+import { forgetPick, readPendingPick, rememberPick } from '../logic/pendingPick';
 import { filesOfDiscardedDraft, saveDraft } from '../logic/saveDraft';
 import { draftKeyFor, useDraftStore } from '../store/draftStore';
 import { errorKeyOf } from './useStockActions';
@@ -104,8 +106,22 @@ export function useProductWizard(productId: string | undefined) {
     else if (saved.length > 0) playHaptic('light');
   };
 
-  // A photo taken just before Android closed the app comes back here.
+  // The picker remembers which draft opened it (pendingPick): if Android closes the app while
+  // it is open, the result is only ever added to that same draft, restored from the marker.
+  const openPicker = async (pick: () => Promise<PickResult>) => {
+    rememberPick({ key, productId: productId ?? null, at: Date.now(), draft });
+    const result = await pick();
+    forgetPick();
+    await addPicked(result);
+  };
+
+  // A photo taken just before Android closed the app comes back here, in the wizard that took it
+  // (usePendingPickRouting reopens it on the next launch). Any other wizard leaves it alone.
   useEffect(() => {
+    const marker = readPendingPick();
+    if (!marker || marker.key !== key) return;
+    forgetPick();
+    if (!useDraftStore.getState().drafts[key]) put(key, marker.draft);
     let alive = true;
     void recoverPendingPick().then((r) => {
       if (alive) void addPicked(r);
@@ -182,6 +198,22 @@ export function useProductWizard(productId: string | undefined) {
   };
   const back = () => (draft.step === 0 ? close() : update((d) => setStep(d, d.step - 1)));
 
+  // Android back (button or gesture) does what the on-screen back does: one step back, and on
+  // the first step leaves with the "draft kept" toast. Never pops the whole wizard silently.
+  const backRef = useRef(back);
+  useEffect(() => {
+    backRef.current = back;
+  });
+  useFocusEffect(
+    useCallback(() => {
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        backRef.current();
+        return true;
+      });
+      return () => sub.remove();
+    }, []),
+  );
+
   return {
     draft,
     ready: base !== null,
@@ -193,8 +225,8 @@ export function useProductWizard(productId: string | undefined) {
     errors: visibleErrors,
     busy,
     room,
-    takePhoto: async () => addPicked(await pickFromCamera()),
-    pickPhotos: async () => addPicked(await pickFromGallery({ multiple: true, max: Math.max(1, room) })),
+    takePhoto: () => openPicker(() => pickFromCamera()),
+    pickPhotos: () => openPicker(() => pickFromGallery({ multiple: true, max: Math.max(1, room) })),
     next,
     back,
     goTo: (step: number) => update((d) => setStep(d, step)),

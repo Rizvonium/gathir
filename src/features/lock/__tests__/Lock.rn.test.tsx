@@ -37,6 +37,7 @@ jest.mock('../pinStore', () => ({
 jest.mock('@/ui/components/Toast', () => ({
   useToast: () => ({ show: jest.fn(), hide: jest.fn() }),
   ToastProvider: ({ children }: { children: ReactNode }) => children,
+  ToastOutlet: () => null,
 }));
 
 async function type(prefix: string, pin: string) {

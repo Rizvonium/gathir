@@ -41,6 +41,7 @@ function moveTree(from: string, to: string): void {
 /** Clears everything and recreates the document and cache roots. */
 export function resetFakeFs(): void {
   store.clear();
+  Object.assign(handleStats, { reads: 0, writes: 0, largestRead: 0, largestWrite: 0, open: 0 });
   clock = 1_000;
   store.set('file:///doc', { kind: 'dir', mtime: 0 });
   store.set('file:///cache', { kind: 'dir', mtime: 0 });
@@ -58,6 +59,67 @@ export function listFiles(prefix: string): string[] {
     .filter(([k, e]) => e.kind === 'file' && k.startsWith(prefix))
     .map(([k]) => k)
     .sort();
+}
+
+export enum FileMode {
+  ReadWrite = 'rw',
+  ReadOnly = 'r',
+  WriteOnly = 'w',
+  Append = 'wa',
+  Truncate = 'wt',
+}
+
+/** Counts of FileHandle calls, so tests can check that big files are read and written in parts. */
+export const handleStats = { reads: 0, writes: 0, largestRead: 0, largestWrite: 0, open: 0 };
+
+/** Random-access handle over a fake file (FileHandle subset: readBytes, writeBytes, offset, size, close). */
+class FakeFileHandle {
+  private closed = false;
+  offset: number | null = 0;
+  constructor(
+    private uri: string,
+    private mode: FileMode,
+  ) {
+    handleStats.open++;
+    if (mode === FileMode.Truncate) this.entry().bytes = new Uint8Array();
+    if (mode === FileMode.Append) this.offset = this.entry().bytes.byteLength;
+  }
+  private entry(): { kind: 'file'; bytes: Uint8Array; mtime: number } {
+    if (this.closed) throw new Error('handle closed');
+    const e = store.get(this.uri);
+    if (e?.kind !== 'file') throw new Error(`missing: ${this.uri}`);
+    return e;
+  }
+  get size(): number | null {
+    return this.closed ? null : this.entry().bytes.byteLength;
+  }
+  async readBytes(length: number): Promise<Uint8Array> {
+    const bytes = this.entry().bytes;
+    const start = this.offset ?? 0;
+    const out = bytes.slice(start, start + length);
+    this.offset = start + out.byteLength;
+    handleStats.reads++;
+    handleStats.largestRead = Math.max(handleStats.largestRead, out.byteLength);
+    return out;
+  }
+  async writeBytes(chunk: Uint8Array): Promise<void> {
+    if (this.mode === FileMode.ReadOnly) throw new Error('read-only handle');
+    const e = this.entry();
+    const start = this.offset ?? 0;
+    const next = new Uint8Array(Math.max(e.bytes.byteLength, start + chunk.byteLength));
+    next.set(e.bytes);
+    next.set(chunk, start);
+    e.bytes = next;
+    e.mtime = clock++;
+    this.offset = start + chunk.byteLength;
+    handleStats.writes++;
+    handleStats.largestWrite = Math.max(handleStats.largestWrite, chunk.byteLength);
+  }
+  close(): void {
+    if (!this.closed) handleStats.open--;
+    this.closed = true;
+    this.offset = null;
+  }
 }
 
 export class File {
@@ -88,10 +150,24 @@ export class File {
     const bytes = typeof content === 'string' ? new TextEncoder().encode(content) : new Uint8Array(content);
     store.set(this.uri, { kind: 'file', bytes, mtime: clock++ });
   }
+  writeSync(content: Uint8Array | string): void {
+    if (store.get(parentOf(this.uri))?.kind !== 'dir') throw new Error(`no parent: ${this.uri}`);
+    const bytes = typeof content === 'string' ? new TextEncoder().encode(content) : new Uint8Array(content);
+    store.set(this.uri, { kind: 'file', bytes, mtime: clock++ });
+  }
+  textSync(): string {
+    const e = store.get(this.uri);
+    if (e?.kind !== 'file') throw new Error(`missing: ${this.uri}`);
+    return new TextDecoder().decode(e.bytes);
+  }
   async bytes(): Promise<Uint8Array> {
     const e = store.get(this.uri);
     if (e?.kind !== 'file') throw new Error(`missing: ${this.uri}`);
     return e.bytes;
+  }
+  open(mode: FileMode = FileMode.ReadWrite): FakeFileHandle {
+    if (!this.exists) throw new Error(`missing: ${this.uri}`);
+    return new FakeFileHandle(this.uri, mode);
   }
   delete(): void {
     if (!this.exists) throw new Error(`missing: ${this.uri}`);

@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen } from '@testing-library/react-native';
 
 import type { ProductDetail, StockHistoryRow } from '@/db/repo/productQueries';
 import type { ProductProfit } from '@/db/repo/profit';
@@ -153,6 +153,29 @@ describe('ProductDetailScreen', () => {
     expect(stock.recordRestock).toHaveBeenCalledWith(expect.anything(), 'c1', 1);
   });
 
+  it('holding "+" saves one restock of all the pieces when the finger lifts, not one per step', async () => {
+    jest.useFakeTimers();
+    try {
+      await render();
+      const plus = screen.getByLabelText('Add one, Red pieces');
+      const shown = () => screen.getByTestId('stepper-c1-value').props.accessibilityValue.now as number;
+      await fireEvent(plus, 'longPress');
+      await act(async () => {
+        jest.advanceTimersByTime(1500);
+      });
+      const added = shown() - 3;
+      expect(added).toBeGreaterThan(5);
+      expect(stock.recordRestock).not.toHaveBeenCalled();
+      await fireEvent(plus, 'pressOut');
+      expect(stock.recordRestock).toHaveBeenCalledTimes(1);
+      expect(stock.recordRestock).toHaveBeenCalledWith(expect.anything(), 'c1', added);
+      // Shown optimistically until the saved count is read back (no flicker back to 3).
+      expect(shown()).toBe(3 + added);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('"−" asks for a reason, then records it with Undo', async () => {
     await render();
     await fireEvent.press(screen.getByLabelText('Remove one, Red pieces'));
@@ -169,6 +192,16 @@ describe('ProductDetailScreen', () => {
     await fireEvent.press(screen.getByLabelText('Remove one, Beige pieces'));
     await fireEvent.press(screen.getByTestId('reason-sold'));
     expect(router.push).toHaveBeenCalledWith({ pathname: '/sell', params: { productId: 'p1', colourId: 'c2' } });
+    expect(stock.recordReduction).not.toHaveBeenCalled();
+  });
+
+  it('"Sold" keeps the quantity picked in the reduce sheet', async () => {
+    await render();
+    await fireEvent.press(screen.getByLabelText('Remove one, Red pieces'));
+    await fireEvent.press(screen.getByTestId('reduce-qty-inc'));
+    await fireEvent.press(screen.getByTestId('reduce-qty-inc'));
+    await fireEvent.press(screen.getByTestId('reason-sold'));
+    expect(router.push).toHaveBeenCalledWith({ pathname: '/sell', params: { productId: 'p1', colourId: 'c1', qty: '3' } });
     expect(stock.recordReduction).not.toHaveBeenCalled();
   });
 

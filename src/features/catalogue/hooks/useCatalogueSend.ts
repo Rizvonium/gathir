@@ -12,7 +12,7 @@ import { catalogueFileBaseName, catalogueMessage, renderCatalogueHtml, renderPdf
 import { shareFileToWhatsApp } from '@/share';
 import { playHaptic, useToast } from '@/ui/components';
 
-import { isPersonalData, sentSnapshot } from '../logic/flowData';
+import { isPersonalData, mayReceive, personalOwner, sentSnapshot } from '../logic/flowData';
 import { catalogueParts, partProductIds } from '../logic/parts';
 import { isDelivered, recipientCustomerId, recipientName, recipientPhone, shareProblemKey, type Recipient } from '../logic/recipient';
 import { recordCatalogueSent } from '../logic/record';
@@ -29,12 +29,15 @@ export function useCatalogueSend() {
   const toast = useToast();
   const { prepared, status, retry } = usePrepared();
   const form = useLoadedForm();
-  const shop = useDbQuery((d) => getShopInfo(d), []);
+  const shop = useDbQuery((d) => getShopInfo(d), [], { tables: ['shop_settings'] });
   const [phase, setPhase] = useState<SendPhase>({ kind: 'choose' });
   const [now] = useState(() => Date.now());
+  // A customer's own catalogue (their special rates) goes only to that customer.
+  const lockedTo = prepared ? personalOwner(prepared.data) : null;
 
   const sendPart = async (recipient: Recipient, partIndex: number) => {
     if (!prepared || !form || phase.kind === 'working') return;
+    if (!mayReceive(prepared.data, recipient)) return;
     const docs = catalogueParts(
       prepared.data,
       form,
@@ -97,10 +100,15 @@ export function useCatalogueSend() {
     status,
     retry,
     phase,
+    /** Customer id this catalogue is locked to (their personal catalogue), or null. */
+    lockedTo,
     send: (recipient: Recipient) => sendPart(recipient, 0),
     sendNextPart: () => {
       if (phase.kind === 'done' && phase.partsSent < phase.totalParts) void sendPart(phase.recipient, phase.partsSent);
     },
-    sendAnother: () => setPhase({ kind: 'choose' }),
+    /** Back to the picker for someone else; a personal catalogue has no "someone else". */
+    sendAnother: () => {
+      if (!lockedTo) setPhase({ kind: 'choose' });
+    },
   };
 }

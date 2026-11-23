@@ -171,6 +171,8 @@
     "noCustomers": "No customers saved yet. Type a number, or choose a chat in WhatsApp.",
     "noMatch": "No customer called “{{query}}”.",
     "rowHint": "Opens WhatsApp with the file",
+    "lockedNote": "This is {{name}}’s own catalogue with their special rates. It goes only to them.",
+    "tryAgainTo": "Try again: send to {{name}}",
     "making": "Making the PDF…",
     "opening": "Opening WhatsApp…",
     "dialogTitle": "Send on WhatsApp",
@@ -205,5 +207,13 @@
     "doneTitle": "Card sent",
     "messageOutro": "From {{shop}}. Reply to ask about this shawl.",
     "sendAnother": "Send to someone else"
+  },
+  "consent": {
+    "title": "{{name}} said no to catalogues",
+    "body": "They asked not to get catalogues or photos on WhatsApp. Send only if they asked for this one.",
+    "sendAnyway": "Send anyway",
+    "cancel": "Don’t send",
+    "rowNote": "Does not want catalogues",
+    "directNote": "{{name}} does not want catalogues on WhatsApp."
   }
 }

@@ -25,7 +25,10 @@ Schema version 2 (`drizzle/0001_profit_catalogues.sql`): `colours.cost_paise`, `
    UI `PieceBadge` uses `'ok'|'low'|'out'` with its own default threshold 2. Always pass
    `lowThreshold={useLowStockLevel()}` (or a row's `status`-consistent level) to `PieceBadge`.
 5. **`useDbQuery` deps must be primitives** (strings, numbers, booleans, null). A new array/object each render would
-   re-run the query every render.
+   re-run the query every render. Queries on an unfocused route (a tab under a pushed screen) don't re-run until it is
+   focused again; pass `{ tables: [...] }` when a query reads only a few tables, and `{ enabled: false }` for a
+   mounted-but-closed sheet. Never write the DB once per held stepper step: `Stepper`'s `onHoldCommit` saves a hold once.
+   Recycled list cells: pass `subjectId` to `PieceBadge` and `recyclingKey` to `Thumbnail` (no animation on scroll).
 6. `PatternHeader` and `LoomEmptyState` call expo-router `useIsFocused`: only inside a route screen.
 7. `AppSheet` children are plain RN views; `ToastProvider` is already mounted in `src/app/_layout.tsx` (88 dp above the
    bottom, for tab screens).
@@ -109,9 +112,9 @@ All read `useTheme()`. Most accept `style` and `testID`. Every pressable has a r
 - `PhoneInput({label; value: E.164|''; onChange(e164|null, text); country?='IN'; helper?; error?; autoFocus?; onSubmitEditing?})`
 
 ### Sheet, toast, misc
-- `AppSheet({visible; onClose; title?; snapPoints?: ('half'|'full'|{fraction}|{height})[]; children; testID?})` — @expo/ui BottomSheet.
+- `AppSheet({visible; onClose; title?; snapPoints?: ('half'|'full'|{fraction}|{height})[]; children; testID?})` — @expo/ui BottomSheet (its own dialog window). Taken down while the app lock is up and shown again after the PIN; a toast raised while it is the top sheet shows inline at the bottom of the sheet (test ID `toast-inline`), never under its scrim. Overlay state lives in `ui/components/overlayStore` (`setScreenLocked` is called by `AppLockGate`).
 - `useToast(): {show({message; actionLabel?; onAction?; secondaryActionLabel?; onSecondaryAction?; durationMs?=8000; tone?:'neutral'|'success'|'danger'}): id; hide(id?)}` — Undo toasts: `toast.show({message: t('deleted'), actionLabel: t('common:actions.undo'), onAction: restore})`. With a secondary action both buttons render (secondary first, main action last); either one runs its handler and closes the toast; TalkBack hears "message. secondary. main". Test IDs `toast-action-secondary|primary`. Pure helpers `toastActions(options)`, `toastAnnouncement(options)`.
-- `ToastProvider({children; bottomOffset?=88})` (already mounted).
+- `ToastProvider({children; bottomOffset?=88})` (already mounted). While the app lock is up a toast waits (hidden, timer paused, not announced) and shows after the PIN.
 - `useReduceMotionEnabled(): boolean` · `readableTextOn(hex): string` · `warmShadow(scheme, level?:'card'|'overlay'): ViewStyle`
 
 ---
@@ -225,11 +228,12 @@ CUSTOMER_EVENT_KINDS, PAYMENT_METHODS ('cash'|'upi'|'card'|'other'), REPORT_KIND
 
 ## 5. Data hooks — `import { … } from '@/db/hooks'`
 
-Return plain data and re-run (at most once per frame) after any DB write.
+Return plain data and re-run (at most once per frame) after a DB write to a table they read, while their screen is focused.
 
 | Hook | Returns |
 |---|---|
-| `useDbQuery(fn: (db) => T, deps: primitive[])` | `T` — any sync repo function: `useDbQuery((d) => getShopInfo(d), [])` |
+| `useDbQuery(fn: (db) => T, deps: primitive[], opts?: { tables?, enabled? })` | `T` — any sync repo function: `useDbQuery((d) => getShopInfo(d), [], { tables: ['shop_settings'] })` |
+| `useHasAnyProduct()` | `boolean` (EXISTS query; "no stock yet" vs "filtered to nothing") |
 | `useDbVersion()` | number that bumps after writes |
 | `useToday()` | `startOfDay(now)`, refreshed at midnight and on app resume; add it to deps for "today" queries |
 | `useSettings()` | `ShopSettings \| undefined` |
@@ -256,7 +260,7 @@ Return plain data and re-run (at most once per frame) after any DB write.
 - `@/lib/phone` (default `'IN'`): `toE164(input, country?)` · `isValidPhone` · `formatPhone` · `formatPhoneInternational` · `formatPhoneAsYouType` · `toWhatsAppNumber` ("919876543210") · `nationalDigits` · `callingCodePrefix` · `DEFAULT_COUNTRY`
 - `@/lib/files`: `photosDir()` · `photoFile(name)` / `thumbFile(name)` (throw on unsafe names) · `isSafeFileName(name)` · `exportsDir()` (`<cache>/exports`) · `freshExportFile(name)` · `cleanupOldExports(now?, maxAge?)` · `isExpired` · `dirUsage(dir, filter?)` · `ensureDir` · `documentSubdir` · `PHOTOS_DIR_NAME`, `EXPORTS_DIR_NAME`, `EXPORT_MAX_AGE_MS`
 - `@/lib/photos`:
-  - `pickFromCamera(): Promise<PickResult>` · `pickFromGallery({multiple?=true, max?=8}?)` · `recoverPendingPick(): Promise<PickResult|null>` (call on mount of add-photo screen). `PickResult = {status:'ok', uris} | {status:'cancelled'} | {status:'denied', canAskAgain} | {status:'error', message}`.
+  - `pickFromCamera(): Promise<PickResult>` · `pickFromGallery({multiple?=true, max?=8}?)` · `recoverPendingPick(): Promise<PickResult|null>` (only where a `features/stock/logic/pendingPick` marker for that same draft exists: the product wizard writes the marker before opening a picker, restores the draft from it, and `usePendingPickRouting` reopens that wizard on the next cold start). `PickResult = {status:'ok', uris} | {status:'cancelled'} | {status:'denied', canAskAgain} | {status:'error', message}`.
   - `savePhoto(uri): Promise<{fileName, thumbName, width, height}>` → pass to `createProduct`/`setPhotos`. Throws → `backup:errors.photoSaveFailed`.
   - `deletePhotoFiles(names): number` · `photoUri(fileName)` / `thumbUri(thumbName)` · `photoAsDataUri(fileName, maxSide=800, quality=0.72): Promise<string|null>` · `sampleColourFromImage(fileName): Promise<'#rrggbb'|null>`
   - Pure: `fitWithin`, `photoNames(id)`, `isThumbName`, `dominantColourHex`; constants `PHOTO_MAX_SIDE 1600, THUMB_MAX_SIDE 400, MAX_PHOTOS_PER_PRODUCT 8, THUMB_SUFFIX`.
@@ -292,8 +296,8 @@ await shareFileToWhatsApp({ fileUri: pdf.uri, mimeType: 'application/pdf', phone
 
 ## 8. Share — `import { … } from '@/share'` (never throw; return a status)
 
-- `shareFileToWhatsApp({fileUri, mimeType, phoneE164?, message, prefer?:'whatsapp'|'business'|'auto', dialogTitle?, filename?}): Promise<{status:'sent'|'dismissed'|'fallback_shared'|'unavailable'|'error', error?}>` — `'sent'` means WhatsApp opened with the file.
-- `shareImagesToWhatsApp({urls, phoneE164?, message?, prefer?, mimeType?}): Promise<ShareResult & {batchesSent, batches}>` — batches of 30.
+- `shareFileToWhatsApp({fileUri, mimeType, phoneE164?, message, prefer?:'whatsapp'|'business'|'auto', dialogTitle?, filename?}): Promise<{status:'sent'|'dismissed'|'fallback_shared'|'unavailable'|'error', error?}>` — `'sent'` means WhatsApp opened with the file **and the seller has come back to Gathir** (react-native-share resolves on launch; the function waits for AppState background → active, or gives up waiting after `LEAVE_TIMEOUT_MS` if the app never left). Mark things sent and show Undo then. Files outside `<cache>` are copied there first (the share FileProvider serves nothing else); an unshareable URI is `'error'`.
+- `shareImagesToWhatsApp({urls, phoneE164?, message?, prefer?, mimeType?}): Promise<ShareResult & {batchesSent, batches}>` — batches of 30, each opened only after the seller is back from the previous one; photos are copied into `<cache>/exports` first (`isShareableUri`).
 - `openWhatsAppChat(phone|null, text): Promise<boolean>` (text-only, wa.me) · `whatsAppChatUrl(phone, text?)` · `whatsAppDigits(phone)` · `detectWhatsApp()` · `chooseWhatsAppTarget(available, prefer)` · `WHATSAPP_PACKAGE`, `WHATSAPP_BUSINESS_PACKAGE`, `WHATSAPP_MAX_MEDIA`
 - Product card: `useProductCardCapture(data: ProductCardData): {node, capture(): Promise<fileUri>}` — render `{node}` in the screen (offscreen), then `capture()` → 1080×1350 JPEG → `shareFileToWhatsApp({…, mimeType: 'image/jpeg'})`. `ProductCardData = {seedKey, name, craft, material?, ratePaise|null, shopName, code?, photoUri|null}`. `<ProductCardImage data onPhotoSettled?/>`, `PRODUCT_CARD_SIZE`.
 

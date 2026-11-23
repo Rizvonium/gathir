@@ -9,6 +9,7 @@ export { ChipGroup, type ChipGroupProps, type ChipOption } from './ChipGroup';
 export { ColourDots, type ColourDot, type ColourDotsProps } from './ColourDots';
 export { ColourSwatch, MULTI_COLOUR, type ColourSwatchProps } from './ColourSwatch';
 export { readableTextOn } from './colorContrast';
+export { DataErrorScreen, type DataErrorScreenProps } from './DataErrorScreen';
 export { Divider, type DividerProps } from './Divider';
 export { EmptyState, type EmptyStateProps } from './EmptyState';
 export { playHaptic, type HapticKind } from './haptics';

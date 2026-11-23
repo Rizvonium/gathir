@@ -6,7 +6,7 @@ import { createTestDb } from '@/test/testDb';
 
 import { addTestProduct, T0 } from '@/db/__tests__/fixtures';
 
-import { parseSummary, sentReports, summaryOf } from '../history';
+import { makeAgainParams, parseSummary, sentReports, summaryOf } from '../history';
 import { daysCovered, isDayInRange, pickCustomDay, recentDays, resolvePeriod } from '../period';
 import { previewHtml } from '../previewHtml';
 import { readRangeSummary, readReportBasics, shopStart } from '../reportData';
@@ -133,5 +133,12 @@ describe('buying price & profit in owner reports (setting)', () => {
     const r = { from: 1, to: 2 };
     expect(reportKey(r, true, 'x', false)).toBe(reportKey(r, true, 'x'));
     expect(reportKey(r, true, 'x', true)).not.toBe(reportKey(r, true, 'x', false));
+  });
+});
+
+describe('Make again from history', () => {
+  it('carries the dates and a new visit stamp; nothing for a report without dates', () => {
+    expect(makeAgainParams({ from: 10, to: 20 }, 99)).toEqual({ from: '10', to: '20', at: '99' });
+    expect(makeAgainParams({ from: null, to: 20 })).toBeNull();
   });
 });

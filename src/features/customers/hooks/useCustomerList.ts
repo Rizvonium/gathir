@@ -6,13 +6,24 @@ import { listCustomers, type CustomerSort } from '@/db/repo/customerQueries';
 import type { CustomerTag } from '@/db/schema';
 
 import { INACTIVE_DAYS } from '../logic/customerLogic';
+import type { CustomerListSeed } from '../logic/links';
 
-export function useCustomerList() {
+/** `seed` comes from the tab's link (e.g. Home's "See all" follow-ups) and is applied once per link. */
+export function useCustomerList(seed: CustomerListSeed | null = null) {
   const [search, setSearch] = useState('');
   const [tag, setTag] = useState<CustomerTag | null>(null);
-  const [followUpDue, setFollowUpDue] = useState(false);
+  const [followUpDue, setFollowUpDue] = useState(seed?.followUpDue ?? false);
   const [inactive, setInactive] = useState(false);
   const [sort, setSort] = useState<CustomerSort>('recent');
+  // A new link while the tab is already open: turn its filter on (adjusting state during render).
+  const [seedKey, setSeedKey] = useState(seed?.key ?? null);
+  if (seed && seed.key !== seedKey) {
+    setSeedKey(seed.key);
+    setSearch('');
+    setTag(null);
+    setInactive(false);
+    setFollowUpDue(seed.followUpDue);
+  }
   const deferredSearch = useDeferredValue(search);
 
   const rows = useCustomers({

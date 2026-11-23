@@ -24,9 +24,11 @@ import { PatternPlaceholder } from '@/ui/patterns';
 import { useTheme } from '@/ui/theme';
 import { touchTarget } from '@/ui/tokens';
 
+import { dueCustomersHref } from '@/features/customers/logic/links';
 import { MarginText, ProfitAmount } from '@/features/profit/components/ProfitBits';
 import { formatMargin, formatProfit } from '@/features/profit/logic';
 import { HIDDEN_FIGURE } from '@/features/profit/privacy';
+import { attentionStockHref } from '@/features/stock/logic/links';
 
 import type { AttentionItem, BackupReminder, Comparison, ReportStatus } from './homeLogic';
 
@@ -315,7 +317,10 @@ export function AttentionStrip({ items, total, lowStockLevel }: { items: Attenti
       <SectionHeader
         title={t('attention.title')}
         actionLabel={total > items.length || total > 3 ? t('attention.seeAll') : undefined}
-        onAction={() => router.navigate('/stock')}
+        onAction={() => router.navigate(attentionStockHref(
+            items.map((i) => i.status),
+            total > items.length,
+          ))}
       />
       <ScrollView
         horizontal
@@ -339,7 +344,7 @@ export function AttentionStrip({ items, total, lowStockLevel }: { items: Attenti
               <AppText variant="caption" weight="semibold" numberOfLines={2}>
                 {p.name}
               </AppText>
-              <PieceBadge count={p.totalPieces} lowThreshold={lowStockLevel} size="sm" />
+              <PieceBadge count={p.totalPieces} lowThreshold={lowStockLevel} size="sm" subjectId={p.id} />
             </PressableScale>
           );
         })}
@@ -418,7 +423,7 @@ export function FollowUps({
       <SectionHeader
         title={t('followUps.title')}
         actionLabel={items.length > MAX_FOLLOW_UPS ? t('attention.seeAll') : undefined}
-        onAction={() => router.navigate('/customers')}
+        onAction={() => router.navigate(dueCustomersHref())}
       />
       <Card padding="none">
         {shown.map((f, i) => (

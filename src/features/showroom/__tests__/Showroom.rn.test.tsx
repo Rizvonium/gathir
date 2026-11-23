@@ -40,6 +40,14 @@ jest.mock('@/db/repo/customerCatalogue', () => ({
   removeFromCustomerCatalogue: jest.fn(),
 }));
 
+const mockVerifyPin = jest.fn();
+jest.mock('@/features/lock/pinStore', () => ({
+  verifyPin: (...a: unknown[]) => mockVerifyPin(...a),
+  readAttempts: jest.fn(async () => ({ fails: 0, lockedUntil: null, rounds: 0 })),
+  canUseFingerprint: jest.fn(async () => false),
+  unlockWithFingerprint: jest.fn(async () => false),
+}));
+
 const product = require('../../catalogue/__tests__/catalogueMocks').product;
 const { router } = jest.requireMock('expo-router') as { router: { replace: jest.Mock; back: jest.Mock; push: jest.Mock } };
 
@@ -141,12 +149,12 @@ describe('idle', () => {
 });
 
 describe('Send me this', () => {
-  it('finds a customer only after typing, saves the like, then offers card or small catalogue', async () => {
+  it('with no PIN set: finds a customer by name after typing, saves the like, then offers card or small catalogue', async () => {
     const onLiked = jest.fn();
     const onSendCard = jest.fn();
     await renderWithTheme(
       <ToastProvider>
-        <SendMeThisSheet product={product('p1')} visible onClose={jest.fn()} liked={{ c1: ['p0'] }} onLiked={onLiked} onSendCard={onSendCard} onSendMini={jest.fn()} />
+        <SendMeThisSheet product={product('p1')} visible pinSet={false} onClose={jest.fn()} liked={{ c1: ['p0'] }} onLiked={onLiked} onSendCard={onSendCard} onSendMini={jest.fn()} />
       </ToastProvider>,
     );
     expect(screen.queryByText('Mrs Shah')).toBeNull();
@@ -162,7 +170,7 @@ describe('Send me this', () => {
   it('saves the shawl to the chosen customer’s catalogue once', async () => {
     await renderWithTheme(
       <ToastProvider>
-        <SendMeThisSheet product={product('p1')} visible onClose={jest.fn()} liked={{}} onLiked={jest.fn()} onSendCard={jest.fn()} onSendMini={jest.fn()} />
+        <SendMeThisSheet product={product('p1')} visible pinSet={false} onClose={jest.fn()} liked={{}} onLiked={jest.fn()} onSendCard={jest.fn()} onSendMini={jest.fn()} />
       </ToastProvider>,
     );
     await fireEvent.changeText(screen.getByLabelText('Find a customer'), 'sh');
@@ -173,6 +181,49 @@ describe('Send me this', () => {
     expect(screen.getAllByText('Saved to Mrs Shah’s catalogue').length).toBeGreaterThan(0);
     expect(screen.getByTestId('sheet-save-catalogue')).toBeDisabled();
     expect(screen.getByText('In Mrs Shah’s catalogue')).toBeTruthy();
+  });
+
+  it('never shows a full number, only the last digits', async () => {
+    await renderWithTheme(
+      <ToastProvider>
+        <SendMeThisSheet product={product('p1')} visible pinSet={false} onClose={jest.fn()} liked={{}} onLiked={jest.fn()} onSendCard={jest.fn()} onSendMini={jest.fn()} />
+      </ToastProvider>,
+    );
+    await fireEvent.changeText(screen.getByLabelText('Find a customer'), 'sh');
+    expect(screen.getByText('•••• 3210')).toBeTruthy();
+    expect(screen.queryByText('98765 43210')).toBeNull();
+  });
+
+  it('with a PIN set: a name finds nobody (the customer book stays closed), the full number finds them', async () => {
+    await renderWithTheme(
+      <ToastProvider>
+        <SendMeThisSheet product={product('p1')} visible pinSet onClose={jest.fn()} liked={{}} onLiked={jest.fn()} onSendCard={jest.fn()} onSendMini={jest.fn()} />
+      </ToastProvider>,
+    );
+    const search = screen.getByLabelText('Their WhatsApp number');
+    await fireEvent.changeText(search, 'sh');
+    expect(screen.queryByText('Mrs Shah')).toBeNull();
+    await fireEvent.changeText(search, '98');
+    expect(screen.queryByText('Mrs Shah')).toBeNull();
+    await fireEvent.changeText(search, '98765 43211');
+    expect(screen.queryByText('Mrs Shah')).toBeNull();
+    expect(screen.getByText('No customer with this number. Add them as new.')).toBeTruthy();
+    await fireEvent.changeText(search, '098765 43210');
+    expect(screen.getByText('Mrs Shah')).toBeTruthy();
+  });
+
+  it('with a PIN set: the seller unlocks name search with the PIN', async () => {
+    mockVerifyPin.mockResolvedValueOnce({ status: 'ok' });
+    await renderWithTheme(
+      <ToastProvider>
+        <SendMeThisSheet product={product('p1')} visible pinSet onClose={jest.fn()} liked={{}} onLiked={jest.fn()} onSendCard={jest.fn()} onSendMini={jest.fn()} />
+      </ToastProvider>,
+    );
+    await fireEvent.press(screen.getByTestId('sheet-unlock'));
+    for (const d of '2580') await fireEvent.press(screen.getByTestId(`sheet-pin-key-${d}`));
+    await waitFor(() => expect(screen.getByLabelText('Find a customer')).toBeTruthy());
+    await fireEvent.changeText(screen.getByLabelText('Find a customer'), 'sh');
+    expect(screen.getByText('Mrs Shah')).toBeTruthy();
   });
 
   it('adds a new customer with just a number', async () => {

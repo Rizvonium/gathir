@@ -1,7 +1,8 @@
 /**
  * Sales tab: period and payment filters, the period's totals (rolling numbers), and sales
  * grouped by day with sticky day totals. Returned sales stay in the list, struck through.
- * Filters switch instantly (frequent action: no animation).
+ * Filters switch instantly (frequent action: no animation): the totals jump on a filter change
+ * (RollingNumber snapKey) and roll only when a sale changes them.
  */
 import { FlashList } from '@shopify/flash-list';
 import { router, type Href } from 'expo-router';
@@ -70,6 +71,7 @@ export function SalesView({ model, actions }: { model: SalesListModel; actions: 
     </View>
   );
 
+  const filterKey = `${model.period}:${model.payment ?? 'all'}`;
   const salesWord = t('list.sales', { count: model.totals.count });
   const piecesWord = t('list.pieces', { count: model.totals.pieces });
   const summary = (
@@ -82,9 +84,9 @@ export function SalesView({ model, actions }: { model: SalesListModel; actions: 
         <AppText variant="small" muted>
           {t('list.summaryLabel', { period: periodWord })}
         </AppText>
-        <RollingNumber value={model.totals.amountPaise} format={formatINR} variant="count" accessible={false} testID="sales-amount" />
+        <RollingNumber value={model.totals.amountPaise} format={formatINR} variant="count" snapKey={filterKey} accessible={false} testID="sales-amount" />
         <View style={[styles.inline, { gap: space.xs }]}>
-          <RollingNumber value={model.totals.pieces} format={formatNumber} variant="body" weight="semibold" accessible={false} />
+          <RollingNumber value={model.totals.pieces} format={formatNumber} variant="body" weight="semibold" snapKey={filterKey} accessible={false} />
           <AppText weight="semibold">{t('list.piecesWord', { count: model.totals.pieces })}</AppText>
           <AppText muted>·</AppText>
           <AppText muted>{salesWord}</AppText>

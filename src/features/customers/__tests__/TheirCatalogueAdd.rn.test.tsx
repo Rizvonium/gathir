@@ -15,6 +15,8 @@ jest.mock('expo-router', () => ({ router: require('./customersMocks').router, us
 jest.mock('@/db/client', () => ({
   db: Object.defineProperty({}, 'transaction', { value: (fn: (tx: unknown) => unknown) => fn({}), enumerable: false }),
 }));
+const mockCreateCustomer = jest.fn((..._a: unknown[]) => 'c-new');
+jest.mock('@/db/repo/customerWrites', () => ({ createCustomer: (...a: unknown[]) => mockCreateCustomer(...a) }));
 jest.mock('@/db/repo/customerCatalogue', () => ({
   addToCustomerCatalogue: jest.fn((_db: unknown, input: { productId: string }) => `item-${input.productId}`),
   removeFromCustomerCatalogue: jest.fn(() => true),
@@ -129,5 +131,32 @@ describe('Add to a customer’s catalogue (product detail)', () => {
     await fireEvent.press(screen.getByTestId('add-to-catalogue-c1'));
     expect(cat.addToCustomerCatalogue).not.toHaveBeenCalled();
     expect(router.push).toHaveBeenCalledWith({ pathname: '/customer/[id]', params: { id: 'c1' } });
+  });
+
+  it('adds someone not saved yet right here, then the design to them (no dead end)', async () => {
+    const onClose = jest.fn();
+    await renderScreen(<AddToCustomerCatalogueSheet productId="p9" visible onClose={onClose} />);
+    await fireEvent.changeText(screen.getByLabelText('Search name or phone'), 'Zainab');
+    expect(screen.getByText('Nobody called “Zainab”. Check the spelling or try the phone number.')).toBeTruthy();
+    await fireEvent.press(screen.getByText('Add “Zainab” as a customer'));
+    expect(screen.getByTestId('add-to-catalogue-new-name').props.value).toBe('Zainab');
+    await fireEvent.changeText(screen.getByLabelText('Phone / WhatsApp'), '98765 43210');
+    await fireEvent.press(screen.getByTestId('add-to-catalogue-new-save'));
+    expect(mockCreateCustomer).toHaveBeenCalledWith({}, { name: 'Zainab', phone: '+919876543210' });
+    expect(cat.addToCustomerCatalogue).toHaveBeenCalledWith({}, { customerId: 'c-new', productId: 'p9' });
+    expect(onClose).toHaveBeenCalled();
+    expect(screen.getByText('Added to Zainab’s catalogue')).toBeTruthy();
+  });
+
+  it('a number that is already saved adds the design to that customer', async () => {
+    const { DuplicateCustomerError } = jest.requireActual('@/db/repo/errors') as typeof import('@/db/repo/errors');
+    mockCreateCustomer.mockImplementationOnce(() => {
+      throw new DuplicateCustomerError('c1', 'Anita Kaul');
+    });
+    await renderScreen(<AddToCustomerCatalogueSheet productId="p9" visible onClose={jest.fn()} />);
+    await fireEvent.press(screen.getByTestId('add-to-catalogue-new'));
+    await fireEvent.changeText(screen.getByTestId('add-to-catalogue-new-name'), 'Anita');
+    await fireEvent.press(screen.getByTestId('add-to-catalogue-new-save'));
+    expect(cat.addToCustomerCatalogue).toHaveBeenCalledWith({}, { customerId: 'c1', productId: 'p9' });
   });
 });

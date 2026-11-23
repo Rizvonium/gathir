@@ -4,6 +4,7 @@ import {
   addColour,
   createProduct,
   getProductDetail,
+  hasAnyProduct,
   listProducts,
   listRecentlyDeleted,
   purgeDeletedOlderThan,
@@ -25,6 +26,17 @@ import { createTestDb } from '@/test/testDb';
 import { addTestProduct, DAY, expectNoDrift, T0 } from './fixtures';
 
 describe('products', () => {
+  it('hasAnyProduct: false for a new shop, true with a live product, false once it is deleted', () => {
+    const db = createTestDb();
+    expect(hasAnyProduct(db)).toBe(false);
+    const { productId } = addTestProduct(db);
+    expect(hasAnyProduct(db)).toBe(true);
+    softDeleteProduct(db, productId, T0 + DAY);
+    expect(hasAnyProduct(db)).toBe(false);
+    restoreProduct(db, productId);
+    expect(hasAnyProduct(db)).toBe(true);
+  });
+
   it('creates product, colours, photos and opening moves in one go', () => {
     const db = createTestDb();
     const { productId, code } = addTestProduct(db, { photos: 2 });

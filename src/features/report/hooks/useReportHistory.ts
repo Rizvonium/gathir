@@ -11,7 +11,7 @@ import { exportsDir } from '@/lib/files';
 import { shareFileToWhatsApp } from '@/share';
 import { playHaptic, useToast } from '@/ui/components';
 
-import { sentReports, type HistoryRow } from '../history';
+import { makeAgainParams, sentReports, type HistoryRow } from '../history';
 
 function fileFor(row: HistoryRow): File | null {
   if (!row.fileName) return null;
@@ -49,10 +49,16 @@ export function useReportHistory() {
     }
   };
 
-  /** The PDF was cleared after 24 h: open the report screen on the same dates to make it again. */
+  /**
+   * The PDF was cleared after 24 h: open the report screen on the same dates to make it again.
+   * Back to the report screen already under History (never a second one stacked on top, which
+   * would share the flow store and leave the first one on these dates); opened from More, there
+   * is none, and one is added.
+   */
   const makeAgain = (row: HistoryRow) => {
-    if (row.from === null || row.to === null) return;
-    router.push({ pathname: '/report', params: { from: String(row.from), to: String(row.to) } });
+    const params = makeAgainParams(row);
+    if (!params) return;
+    router.dismissTo({ pathname: '/report', params });
   };
 
   return { rows, busyId, hasFile: (row: HistoryRow) => fileFor(row) !== null, reshare: (row: HistoryRow) => void reshare(row), makeAgain };

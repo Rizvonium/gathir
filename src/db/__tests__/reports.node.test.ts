@@ -14,7 +14,8 @@ import {
   sinceLastReportPeriod,
   unmarkSent,
 } from '@/db/repo/reports';
-import { cancelSale, createSale, salesSummary, unreportedSales } from '@/db/repo/sales';
+import { cancelSale, countUnreportedSales, createSale, salesSummary, unreportedSales } from '@/db/repo/sales';
+import * as saleQueries from '@/db/repo/saleQueries';
 import { updateSettings } from '@/db/repo/settings';
 import { recordReduction } from '@/db/stock';
 import { createTestDb } from '@/test/testDb';
@@ -82,8 +83,10 @@ describe('owner report data', () => {
     expect(rec.number).toBe(1);
     expect(createReportRecord(db, { kind: 'catalogue' }, T0 + DAY).number).toBe(0);
     expect(unreportedSales(db)).toHaveLength(2);
+    expect(countUnreportedSales(db)).toBe(2);
     markSent(db, rec.id, T0 + DAY + 1);
     expect(unreportedSales(db)).toHaveLength(0);
+    expect(countUnreportedSales(db)).toBe(0);
     expect(lastOwnerReport(db)?.id).toBe(rec.id);
     expect(listReports(db, 'owner')).toHaveLength(1);
     expect(listReports(db)).toHaveLength(2);
@@ -190,5 +193,20 @@ describe('home summary', () => {
     expect(h.unreportedSalesCount).toBe(3);
     expect(h.lastReportSentAt).toBeNull();
     expect(h.followUpsDue).toHaveLength(1);
+  });
+
+  it('counts unreported sales in SQL instead of loading them with their items', () => {
+    const { db, b } = setup();
+    const cancelled = createSale(db, { items: [{ colourId: b.colourIds[0], qty: 1, ratePaise: 4_000_000 }] }, T0 - DAY);
+    cancelSale(db, cancelled.saleId, T0 - DAY + 1);
+    const load = jest.spyOn(saleQueries, 'unreportedSales');
+    try {
+      const h = homeSummary(db, T0 + 6000, 1);
+      expect(load).not.toHaveBeenCalled();
+      expect(h.unreportedSalesCount).toBe(2);
+      expect(h.unreportedSalesCount).toBe(unreportedSales(db).length);
+    } finally {
+      load.mockRestore();
+    }
   });
 });

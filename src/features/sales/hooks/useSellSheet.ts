@@ -38,7 +38,7 @@ import {
   type SellSummary,
 } from '../logic/sellCart';
 
-export type SellParams = { productId?: string; colourId?: string; customerId?: string };
+export type SellParams = { productId?: string; colourId?: string; customerId?: string; /** Pieces to start with (clamped to the colour's stock). */ qty?: number };
 
 export type SoldSale = { saleId: string; billNo: string; totalPaise: number; lines: SellLine[]; customerId: string | null; hasPhone: boolean };
 
@@ -84,7 +84,7 @@ export function useSellSheet(params: SellParams): SellController {
   const [state, setState] = useState<SellState>(() => {
     const base = initialSellState(customerFromParam(params.customerId));
     const start = params.productId ? productOptionFromDetail(getProductDetail(db, params.productId)) : null;
-    return start ? pickProduct(base, start, params.colourId) : base;
+    return start ? pickProduct(base, start, params.colourId, params.qty) : base;
   });
   const [search, setSearch] = useState('');
   const [submitting, setSubmitting] = useState(false);

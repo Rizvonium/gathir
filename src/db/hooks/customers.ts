@@ -13,12 +13,19 @@ import { dueFollowUps, type DueFollowUp } from '../repo/events';
 import { useDbQuery } from './useDbQuery';
 import { useToday } from './useToday';
 
-/** Customer list with lifetime totals. `now` (for follow-up/inactive filters) is read at query time. */
-export function useCustomers(filters: CustomerListFilters = {}): CustomerListRow[] {
+/** Tables listCustomers reads. */
+const CUSTOMER_LIST_TABLES = ['customers', 'sales', 'customer_events'] as const;
+
+/**
+ * Customer list with lifetime totals. `now` (for follow-up/inactive filters) is read at query time.
+ * `enabled: false` keeps the last list without re-reading it (a closed sheet).
+ */
+export function useCustomers(filters: CustomerListFilters = {}, { enabled = true }: { enabled?: boolean } = {}): CustomerListRow[] {
   const { search, tag, followUpDue, inactiveDays, sort } = filters;
   return useDbQuery(
     (d) => listCustomers(d, { search, tag, followUpDue, inactiveDays, sort }, Date.now()),
     [search, tag, followUpDue, inactiveDays, sort],
+    { tables: CUSTOMER_LIST_TABLES, enabled },
   );
 }
 

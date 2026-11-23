@@ -9,6 +9,7 @@ import { catalogueParts, partProductIds, partStats } from '../logic/parts';
 import { FAN_MAX_PAGES, previewHtml } from '../logic/previewHtml';
 import { quickAddCustomer, recordCardSent, recordCatalogueSent, recordLikedItems } from '../logic/record';
 import { initialSource, parseIdList, toggleId, toSelection } from '../logic/selection';
+import { mayReceive, personalOwner } from '../logic/flowData';
 
 describe('catalogue options', () => {
   it('falls back to defaults for missing or broken JSON', () => {
@@ -152,11 +153,32 @@ describe('recording sends', () => {
     expect(a.name).toContain('98765');
     const again = quickAddCustomer(db, { name: 'Someone', phone: '+919876543210' }, T0);
     expect(again).toEqual(a);
+    // "Send me this" is the customer asking for it: that is their yes to being sent catalogues.
+    expect(getCustomerProfile(db, a.id)!.customer.whatsappOk).toBe(true);
     recordCardSent(db, a.id, productId, T0);
     recordCardSent(db, null, productId, T0);
     recordLikedItems(db, a.id, [productId, productId], T0);
     const kinds = JSON.stringify(getCustomerProfile(db, a.id)!.timeline);
     expect(kinds).toContain('card_sent');
     expect(kinds.match(/liked_item/g)).toHaveLength(1);
+  });
+});
+
+describe("a customer's own catalogue goes only to them", () => {
+  const plain = { customerId: null } as unknown as Parameters<typeof mayReceive>[0];
+  const theirs = { customerId: 'c1' } as unknown as Parameters<typeof mayReceive>[0];
+
+  it('locks personal data to its customer', () => {
+    expect(personalOwner(theirs)).toBe('c1');
+    expect(personalOwner(plain)).toBeNull();
+    expect(mayReceive(theirs, { kind: 'customer', id: 'c1', name: 'Mrs Shah', phone: null })).toBe(true);
+    expect(mayReceive(theirs, { kind: 'customer', id: 'c2', name: 'Rafiq', phone: null })).toBe(false);
+    expect(mayReceive(theirs, { kind: 'number', phone: '+919876543210' })).toBe(false);
+    expect(mayReceive(theirs, { kind: 'chat' })).toBe(false);
+  });
+
+  it('lets a plain catalogue go to anyone', () => {
+    expect(mayReceive(plain, { kind: 'chat' })).toBe(true);
+    expect(mayReceive(plain, { kind: 'customer', id: 'c2', name: 'Rafiq', phone: null })).toBe(true);
   });
 });

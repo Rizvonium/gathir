@@ -3,6 +3,7 @@ import { listDeletedCustomers, type DeletedCustomerRow } from '../repo/customerQ
 import { listRecentlyDeleted, type DeletedProductRow } from '../repo/productLifecycle';
 import {
   getProductDetail,
+  hasAnyProduct,
   listProducts,
   stockHistory,
   type ProductDetail,
@@ -21,6 +22,11 @@ export function useProducts(filters: ProductListFilters = {}): ProductListRow[] 
       listProducts(d, { search, categoryId, filter, sort, lowStockLevel: lowStockLevel ?? getLowStockLevel(d) }),
     [search, categoryId, filter, sort, lowStockLevel],
   );
+}
+
+/** Whether the shop has any (live) product: tells "no stock yet" from "filtered to nothing". */
+export function useHasAnyProduct(): boolean {
+  return useDbQuery((d) => hasAnyProduct(d), [], { tables: ['products'] });
 }
 
 /** One product with category, colours, photos and total, or null when missing. */

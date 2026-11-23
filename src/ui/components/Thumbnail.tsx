@@ -12,13 +12,21 @@ export type ThumbnailProps = {
   size?: number;
   /** Corner radius token. Default `md` (12). */
   rounded?: 'sm' | 'md' | 'card';
-  /** Stable id (e.g. photo id) so FlashList recycling never flashes the previous image. */
+  /**
+   * Stable id (e.g. photo id) so FlashList recycling never flashes the previous image. Marks a
+   * recycled list cell: those images appear without the fade-in, so scrolling never animates.
+   */
   recyclingKey?: string;
   /** Describe the photo; omit for decorative thumbs inside a labelled row. */
   accessibilityLabel?: string;
   contentFit?: ImageProps['contentFit'];
   style?: StyleProp<ViewStyle>;
 };
+
+/** Loading fade for single images; none in recycled list cells (no animation on scroll). */
+export function thumbnailTransition(reduced: boolean, recyclingKey: string | undefined): number {
+  return reduced || recyclingKey !== undefined ? 0 : 120;
+}
 
 /** Rounded expo-image with a sunken placeholder colour and cover fit. */
 export function Thumbnail({ uri, size = 56, rounded = 'md', recyclingKey, accessibilityLabel, contentFit = 'cover', style }: ThumbnailProps) {
@@ -43,7 +51,7 @@ export function Thumbnail({ uri, size = 56, rounded = 'md', recyclingKey, access
         style={StyleSheet.absoluteFill}
         contentFit={contentFit}
         recyclingKey={recyclingKey}
-        transition={reduced ? 0 : 120}
+        transition={thumbnailTransition(reduced, recyclingKey)}
         accessible={!!accessibilityLabel}
         accessibilityLabel={accessibilityLabel}
       />

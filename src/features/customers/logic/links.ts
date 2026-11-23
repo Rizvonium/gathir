@@ -38,3 +38,20 @@ export const addPiecesHref = (customerId: string) => href('/customer/[id]/add-pi
 export const editProductHref = (productId: string) => href('/product/[id]/edit', { id: productId });
 
 export const deletedHref = () => href('/deleted');
+
+/** What a link into the Customers tab turns on ("See all" on Home's follow-ups). */
+export type CustomerListSeed = { key: string; followUpDue: boolean };
+
+/**
+ * Customers tab with "Follow-up due" on. `at` makes every tap a new link, so the filter is
+ * turned on again even when the tab is already open with these params.
+ */
+export const dueCustomersHref = (at: number = Date.now()) => href('/customers', { filter: 'due', at: String(at) });
+
+/** Reads the Customers tab's link params (null when there is nothing to turn on). */
+export function customerListSeed(params: { filter?: string | string[]; at?: string | string[] }): CustomerListSeed | null {
+  const filter = Array.isArray(params.filter) ? params.filter[0] : params.filter;
+  const at = Array.isArray(params.at) ? params.at[0] : params.at;
+  if (filter !== 'due') return null;
+  return { key: `${filter}:${at ?? ''}`, followUpDue: true };
+}

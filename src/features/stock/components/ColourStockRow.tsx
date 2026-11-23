@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -9,7 +10,8 @@ export type ColourStockRowProps = {
   colour: Colour;
   oneOfAKind: boolean;
   lowThreshold: number;
-  onRestock: (colourId: string, qty: number) => void;
+  /** Saves a restock; returns false when it failed (the caller shows why). */
+  onRestock: (colourId: string, qty: number) => boolean;
   /** "−" pressed: ask why. `qty` grows while "−" is held. */
   onRequestReduce: (colour: Colour, qty: number) => void;
   onSell: (colourId: string) => void;
@@ -24,12 +26,21 @@ export function ColourStockRow({ colour, oneOfAKind, lowThreshold, onRestock, on
   const { space } = useTheme();
   const { t } = useTranslation('stock');
 
-  // The stepper is controlled by the saved count. "+" saves one piece per step (a hold keeps
-  // counting up). "−" saves nothing: it asks for a reason for (saved − shown) pieces; when the sheet
-  // closes the count is still the saved one, so the stepper is back in sync on its own.
+  // A "+" hold is saved once, when the finger lifts (one restock of n pieces, one history row),
+  // not once per step: each write refreshes every open query. Until the saved count catches up
+  // (the next frame), the row shows the new count optimistically so the number doesn't flicker back.
+  const [optimistic, setOptimistic] = useState<{ from: number; shown: number } | null>(null);
+  const shown = optimistic && optimistic.from === colour.pieces ? optimistic.shown : colour.pieces;
+
+  // The stepper is controlled by the saved count. "+" saves straight away. "−" saves nothing: it
+  // asks for a reason for (saved − shown) pieces; when the sheet closes the count is still the
+  // saved one, so the stepper is back in sync on its own.
   const onChange = (next: number) => {
-    if (next > colour.pieces) onRestock(colour.id, 1);
-    else onRequestReduce(colour, Math.max(1, colour.pieces - next));
+    if (next > shown) {
+      // From the shown count: a restock may be saved but not yet read back.
+      if (onRestock(colour.id, next - shown)) setOptimistic({ from: colour.pieces, shown: next });
+      else setOptimistic(null);
+    } else onRequestReduce(colour, Math.max(1, shown - next));
   };
 
   if (oneOfAKind) {
@@ -61,8 +72,9 @@ export function ColourStockRow({ colour, oneOfAKind, lowThreshold, onRestock, on
       <Stepper
         testID={`stepper-${colour.id}`}
         size="md"
-        value={colour.pieces}
+        value={shown}
         onChange={onChange}
+        onHoldCommit={onChange}
         accessibilityLabel={t('detail.colourPieces', { name: colour.name })}
       />
     </View>

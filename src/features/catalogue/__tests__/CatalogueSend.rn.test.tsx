@@ -130,3 +130,48 @@ it('explains a PDF that could not be made', async () => {
   expect(mockShare).not.toHaveBeenCalled();
   expect(DEFAULT_FORM.showRates).toBe(true);
 });
+
+describe("a customer's own catalogue (their special rates)", () => {
+  function LockedHarness() {
+    const s = useCatalogueSend();
+    return (
+      <View>
+        <Text testID="phase">{s.phase.kind === 'done' ? `done ${s.phase.partsSent}/${s.phase.totalParts}` : s.phase.kind}</Text>
+        <Text testID="locked">{s.lockedTo ?? 'none'}</Text>
+        <Pressable testID="send-shah" onPress={() => void s.send(shah)} />
+        <Pressable testID="send-other" onPress={() => void s.send({ kind: 'customer', id: 'c2', name: 'Rafiq Dar', phone: '+919811111111' })} />
+        <Pressable testID="send-chat" onPress={() => void s.send({ kind: 'chat' })} />
+        <Pressable testID="send-number" onPress={() => void s.send({ kind: 'number', phone: '+919822222222' })} />
+        <Pressable testID="another" onPress={s.sendAnother} />
+      </View>
+    );
+  }
+  const data = mockPrepared.data as typeof mockPrepared.data & { customerId?: string | null };
+  beforeEach(() => {
+    data.customerId = 'c1';
+  });
+  afterEach(() => {
+    data.customerId = null;
+  });
+
+  it('never goes to another customer, a typed number or a chat', async () => {
+    mockShare.mockResolvedValue({ status: 'sent' });
+    await renderWithTheme(
+      <ToastProvider>
+        <LockedHarness />
+      </ToastProvider>,
+    );
+    expect(screen.getByTestId('locked')).toHaveTextContent('c1');
+    await fireEvent.press(screen.getByTestId('send-other'));
+    await fireEvent.press(screen.getByTestId('send-chat'));
+    await fireEvent.press(screen.getByTestId('send-number'));
+    expect(mockRender).not.toHaveBeenCalled();
+    expect(mockShare).not.toHaveBeenCalled();
+
+    await fireEvent.press(screen.getByTestId('send-shah'));
+    await waitFor(() => expect(screen.getByTestId('phase')).toHaveTextContent('done 1/2'));
+    // "Send to another" does not reopen the picker for their catalogue.
+    await fireEvent.press(screen.getByTestId('another'));
+    expect(screen.getByTestId('phase')).toHaveTextContent('done 1/2');
+  });
+});

@@ -23,7 +23,7 @@ import {
   withBudget,
 } from '../logic/customerLogic';
 import { referencedProductIds, timelineRows } from '../logic/timeline';
-import { catalogueHref, newCustomerHref } from '../logic/links';
+import { catalogueHref, customerListSeed, dueCustomersHref, newCustomerHref } from '../logic/links';
 
 const NOW = new Date(2026, 10, 22, 15, 30).getTime(); // Sun 22 Nov 2026, 3:30 pm
 const day = (d: number, h = 12) => new Date(2026, 10, d, h).getTime();
@@ -190,5 +190,14 @@ describe('timeline rows', () => {
     expect(rows[4]).toMatchObject({ titleKey: 'timeline.followUpDone', icon: 'check-circle', done: true });
     expect(rows[5]).toMatchObject({ count: 0 });
     expect(referencedProductIds(rows)).toEqual(['p1']);
+  });
+});
+
+describe('link into the Customers tab', () => {
+  it('"See all" follow-ups turns "Follow-up due" on, once per link', () => {
+    expect(dueCustomersHref(7)).toEqual({ pathname: '/customers', params: { filter: 'due', at: '7' } });
+    expect(customerListSeed({ filter: 'due', at: '7' })).toEqual({ key: 'due:7', followUpDue: true });
+    expect(customerListSeed({})).toBeNull();
+    expect(customerListSeed({ filter: 'other' })).toBeNull();
   });
 });

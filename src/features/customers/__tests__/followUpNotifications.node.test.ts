@@ -20,6 +20,7 @@ jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 import {
   createFollowUp,
   customerIdFromResponse,
+  foregroundPresentation,
   finishFollowUp,
   removeFollowUp,
   rescheduleOpenFollowUps,
@@ -108,6 +109,11 @@ it('reads the customer id from a tapped reminder only', () => {
   expect(customerIdFromResponse(response({ type: 'follow-up', customerId: 'c1' }))).toBe('c1');
   expect(customerIdFromResponse(response({ type: 'backup', customerId: 'c1' }))).toBeNull();
   expect(customerIdFromResponse(null)).toBeNull();
+});
+
+it('never shows a reminder over the Showroom (another customer’s name and the seller’s note)', () => {
+  expect(foregroundPresentation(false)).toMatchObject({ shouldShowBanner: true, shouldShowList: true });
+  expect(foregroundPresentation(true)).toMatchObject({ shouldShowBanner: false, shouldShowList: false });
 });
 
 it('restoring a customer re-arms only their open follow-ups that are still ahead', async () => {

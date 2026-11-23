@@ -33,6 +33,7 @@ const mockToast = jest.fn();
 jest.mock('@/ui/components/Toast', () => ({
   useToast: () => ({ show: mockToast, hide: jest.fn() }),
   ToastProvider: ({ children }: { children: React.ReactNode }) => children,
+  ToastOutlet: () => null,
 }));
 
 const mockDraft = { shopName: '', sellerName: '', phone: '', address: '', upiId: '', ownerWhatsapp: '+919906000999', language: 'en', pinSet: false };
@@ -115,6 +116,14 @@ describe('Owner step', () => {
     await fireEvent.press(screen.getByTestId('owner-continue'));
     expect(data.saveOwnerWhatsapp).toHaveBeenCalledWith({}, '+919906000999');
     expect(mockRouter.push).toHaveBeenCalledWith('/app-lock');
+  });
+
+  it('after setup (e.g. opened by a gathir://owner link) never saves: hands over to the PIN-gated settings screen', async () => {
+    mockOnboarded = true;
+    await render(<OwnerScreen />);
+    expect(screen.queryByTestId('owner-continue')).toBeNull();
+    expect(mockRouter.replace).toHaveBeenCalledWith('/settings/owner');
+    expect(data.saveOwnerWhatsapp).not.toHaveBeenCalled();
   });
 });
 

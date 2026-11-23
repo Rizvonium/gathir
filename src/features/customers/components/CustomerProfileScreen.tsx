@@ -166,7 +166,18 @@ export function CustomerProfileScreen({ id }: { id: string | undefined }) {
       ) : null}
 
       {!deleted ? (
-        <Button testID="customer-catalogue" label={t('profile.sendCatalogue')} icon="picture-as-pdf" variant="secondary" onPress={() => router.push(catalogueHref(customer.id))} />
+        <View style={{ gap: space.xs }}>
+          {!customer.whatsappOk ? (
+            // Every catalogue or card send to them asks first ("Send anyway"), never one tap.
+            <View style={[styles.row, { gap: space.xs }]} testID="customer-catalogue-no-consent">
+              <Icon name="do-not-disturb-on" size={18} tone="textMuted" />
+              <AppText variant="small" muted style={styles.flex}>
+                {t('profile.noCataloguesAsk')}
+              </AppText>
+            </View>
+          ) : null}
+          <Button testID="customer-catalogue" label={t('profile.sendCatalogue')} icon="picture-as-pdf" variant="secondary" onPress={() => router.push(catalogueHref(customer.id))} />
+        </View>
       ) : null}
 
       <Timeline rows={p.rows} productNames={p.productNames} onOpenSale={(sid) => router.push(saleHref(sid))} onOpenProduct={(pid) => router.push(productHref(pid))} onAddNote={() => setNoteOpen(true)} />

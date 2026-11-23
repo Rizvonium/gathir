@@ -14,6 +14,13 @@ export type PieceBadgeProps = {
   /** At or below this count the badge shows "Low". Default 2 (pass the shop setting). */
   lowThreshold?: number;
   size?: 'sm' | 'md';
+  /**
+   * What the count belongs to (product or colour id). Required in recycled list cells: when a cell
+   * is reused for another item the pill is re-created, so its colour snaps instead of fading from
+   * the previous item's status while scrolling. The fade then only plays when the same item
+   * crosses the low line.
+   */
+  subjectId?: string;
   testID?: string;
   style?: StyleProp<ViewStyle>;
 };
@@ -33,9 +40,10 @@ function statusColors(colors: Theme['colors'], status: StockStatus) {
 
 /**
  * Piece count + stock status pill. Status is told three ways: text ("Only 2 left",
- * "Sold out"), icon and colour; colour cross-fades 160 ms when crossing the low line.
+ * "Sold out"), icon and colour; colour cross-fades 160 ms when the same item (`subjectId`) crosses
+ * the low line.
  */
-export function PieceBadge({ count, lowThreshold = DEFAULT_LOW_THRESHOLD, size = 'md', testID, style }: PieceBadgeProps) {
+export function PieceBadge({ count, lowThreshold = DEFAULT_LOW_THRESHOLD, size = 'md', subjectId, testID, style }: PieceBadgeProps) {
   const { colors, space, radius } = useTheme();
   const { t } = useTranslation('ui');
   const reduced = useReduceMotionEnabled();
@@ -47,6 +55,7 @@ export function PieceBadge({ count, lowThreshold = DEFAULT_LOW_THRESHOLD, size =
 
   return (
     <Animated.View
+      key={subjectId}
       testID={testID}
       accessible
       accessibilityRole="text"

@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { StyleSheet, View, type AccessibilityActionEvent, type StyleProp, type ViewStyle } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -18,6 +18,14 @@ export type StepperProps = {
   value: number;
   /** Called with value ± step. The parent decides whether `value` follows. */
   onChange: (next: number) => void;
+  /**
+   * Set it when each step is costly (a database write): a hold-to-repeat then counts on the
+   * stepper itself (a haptic and a roll per step, no `onChange`) and this is called once, with
+   * the final count, when the finger lifts. The stepper shows `value` again from then on, so a
+   * parent that saves it passes the new count straight away (optimistically) to avoid a flicker.
+   * Taps and TalkBack actions still call `onChange` per step.
+   */
+  onHoldCommit?: (next: number) => void;
   min?: number;
   max?: number;
   step?: number;
@@ -39,6 +47,7 @@ const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(mi
 export function Stepper({
   value,
   onChange,
+  onHoldCommit,
   min = 0,
   max = Number.MAX_SAFE_INTEGER,
   step = 1,
@@ -53,18 +62,37 @@ export function Stepper({
   // Only a hold-to-repeat runs ahead of the parent's renders: it counts from `value` at the start
   // of the hold. Taps and TalkBack actions always step from the controlled `value`.
   const holding = useRef(value);
+  const holdActive = useRef(false);
+  // With onHoldCommit: the running count shown while a hold is in progress (null otherwise).
+  const [held, setHeld] = useState<number | null>(null);
+  const shown = held ?? value;
+
+  /** The next value one step from `base`, or null when a bound blocks it. */
+  const nextFrom = (base: number, direction: 1 | -1): number | null => {
+    const next = clamp(base + direction * step, min, max);
+    return next === base ? null : next;
+  };
 
   /** One step from `base`; returns the new value, or null when a bound blocks it. */
   const stepFrom = (base: number, direction: 1 | -1): number | null => {
-    const next = clamp(base + direction * step, min, max);
-    if (next === base) return null;
+    const next = nextFrom(base, direction);
+    if (next === null) return null;
     playHaptic('selection');
     onChange(next);
     return next;
   };
 
   const holdTick = (direction: 1 | -1): boolean => {
-    const next = stepFrom(holding.current, direction);
+    let next: number | null;
+    if (onHoldCommit) {
+      next = nextFrom(holding.current, direction);
+      if (next !== null) {
+        playHaptic('selection');
+        setHeld(next);
+      }
+    } else {
+      next = stepFrom(holding.current, direction);
+    }
     if (next === null) return false;
     holding.current = next;
     return next !== (direction > 0 ? max : min);
@@ -74,7 +102,15 @@ export function Stepper({
   const dec = useHoldRepeat(() => holdTick(-1));
   const startHold = (direction: 1 | -1) => {
     holding.current = value;
+    holdActive.current = true;
     (direction > 0 ? inc : dec).start();
+  };
+  const endHold = (repeat: { stop: () => void }) => {
+    repeat.stop();
+    if (!holdActive.current) return;
+    holdActive.current = false;
+    setHeld(null);
+    if (onHoldCommit && holding.current !== value) onHoldCommit(holding.current);
   };
 
   const onAccessibilityAction = (e: AccessibilityActionEvent) => {
@@ -83,6 +119,8 @@ export function Stepper({
   };
 
   const button = size === 'lg' ? 56 : touchTarget;
+  // From the controlled value, not the held count: disabling a button mid-hold could drop its
+  // press-out, and with it the commit.
   const atMin = value <= min;
   const atMax = value >= max;
 
@@ -97,7 +135,7 @@ export function Stepper({
         disabled={blocked}
         onPress={() => stepFrom(value, isInc ? 1 : -1)}
         onLongPress={() => startHold(isInc ? 1 : -1)}
-        onPressOut={repeat.stop}
+        onPressOut={() => endHold(repeat)}
         delayLongPress={350}
         style={[
           styles.button,
@@ -122,11 +160,11 @@ export function Stepper({
         accessible
         accessibilityRole="adjustable"
         accessibilityLabel={accessibilityLabel}
-        accessibilityValue={{ min, max: max === Number.MAX_SAFE_INTEGER ? undefined : max, now: value, text: String(value) }}
+        accessibilityValue={{ min, max: max === Number.MAX_SAFE_INTEGER ? undefined : max, now: shown, text: String(shown) }}
         accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
         onAccessibilityAction={onAccessibilityAction}
         style={styles.value}>
-        <RollingNumber accessible={false} value={value} variant={size === 'lg' ? 'count' : 'heading'} />
+        <RollingNumber accessible={false} value={shown} variant={size === 'lg' ? 'count' : 'heading'} />
       </View>
       {renderButton('inc')}
     </View>

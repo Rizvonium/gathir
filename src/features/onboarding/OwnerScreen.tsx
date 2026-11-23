@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -10,12 +10,25 @@ import { useTheme } from '@/ui/theme';
 import { OnboardingScaffold } from './OnboardingScaffold';
 import { readOnboardingDraft, saveOwnerWhatsapp } from './onboardingData';
 import { ownerNumberToSave } from './onboardingLogic';
+import { useOnboarded } from './useOnboarded';
 
 /**
  * Step 3: where owner reports go. Pre-filled from the build (app.json extra.ownerWhatsApp via
- * the seed), so most sellers just tap Continue. Editable here; later only behind the PIN.
+ * the seed), so most sellers just tap Continue. Editable here; later only behind the PIN: once
+ * setup has finished this step hands over to /settings/owner (PIN-gated) and never saves itself.
  */
 export function OwnerScreen() {
+  const onboarded = useOnboarded();
+  const [afterSetup] = useState(onboarded);
+  const router = useRouter();
+  useEffect(() => {
+    if (afterSetup) router.replace('/settings/owner');
+  }, [afterSetup, router]);
+  if (afterSetup) return null;
+  return <OwnerStep />;
+}
+
+function OwnerStep() {
   const { t } = useTranslation('onboarding');
   const { t: tc } = useTranslation('common');
   const { space } = useTheme();

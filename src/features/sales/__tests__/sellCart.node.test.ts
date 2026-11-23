@@ -46,6 +46,13 @@ describe('sell cart', () => {
     expect(sum.pieces).toBe(1);
   });
 
+  it('starts on a quantity carried over from the reduce sheet, kept within the colour\'s pieces', () => {
+    expect(pickProduct(initialSellState(), stole, 'red', 2).draft.qty).toBe(2);
+    expect(pickProduct(initialSellState(), stole, 'red', 9).draft.qty).toBe(3);
+    expect(pickProduct(initialSellState(), stole, 'red', 0).draft.qty).toBe(1);
+    expect(pickProduct(initialSellState(), stole, 'red', Number.NaN).draft.qty).toBe(1);
+  });
+
   it('asks for a colour when several have pieces, unless the link named one', () => {
     expect(pickProduct(initialSellState(), twoColours).draft.colourId).toBeNull();
     expect(sellSummary(pickProduct(initialSellState(), twoColours), twoColours).blocker).toBe('needs_colour');

@@ -3,6 +3,7 @@ import { useState, type ReactNode } from 'react';
 import { ActivityIndicator, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { useShowroomActive } from '@/features/showroom/hooks/useShowroomActive';
 import { formatPhone } from '@/lib/phone';
 import { ProductCardImage } from '@/share';
 import { AppText, Button, EmptyState, Icon, IconButton, Screen, useReduceMotionEnabled } from '@/ui/components';
@@ -12,7 +13,9 @@ import { useTheme } from '@/ui/theme';
 import { useCustomerBrief } from '../hooks/useCustomerBrief';
 import { useExitFlow } from '../hooks/useExitFlow';
 import { useProductCardSend } from '../hooks/useProductCardSend';
+import { needsConsentCheck } from '../logic/consent';
 import type { Recipient } from '../logic/recipient';
+import { NoConsentSheet } from './NoConsentSheet';
 import { RecipientPicker } from './RecipientPicker';
 
 /** Layout size of ProductCardImage in dp (it is captured at 1080×1350). */
@@ -25,6 +28,10 @@ export function CardScreen({ productId, customerId }: { productId?: string; cust
   const card = useProductCardSend(productId);
   const customer = useCustomerBrief(customerId);
   const [pickOther, setPickOther] = useState(false);
+  // Opened from the Showroom: the phone may be in the customer's hands, so no "Someone else"
+  // (that list is the whole customer book). The chosen customer only.
+  const showroom = useShowroomActive();
+  const [confirming, setConfirming] = useState(false);
 
   const back = <IconButton icon="arrow-back" accessibilityLabel={t('flow.back')} onPress={exit} />;
 
@@ -43,6 +50,11 @@ export function CardScreen({ productId, customerId }: { productId?: string; cust
   const working = card.phase.kind === 'working';
   const preview = <CardPreview name={card.data.name} node={<ProductCardImage data={card.data} />} />;
   const direct = customer && !pickOther;
+  const sendDirect = () => {
+    if (!customer) return;
+    setConfirming(false);
+    void card.send({ kind: 'customer', id: customer.id, name: customer.name, phone: customer.phone });
+  };
 
   return (
     <Screen
@@ -53,7 +65,9 @@ export function CardScreen({ productId, customerId }: { productId?: string; cust
       footer={
         direct ? (
           <View style={[styles.row, { gap: space.sm }]}>
-            <Button label={t('card.someoneElse')} variant="secondary" size="lg" onPress={() => setPickOther(true)} disabled={working} />
+            {showroom ? null : (
+              <Button testID="card-someone-else" label={t('card.someoneElse')} variant="secondary" size="lg" onPress={() => setPickOther(true)} disabled={working} />
+            )}
             <Button
               testID="card-send-customer"
               label={t('card.sendTo', { name: customer.name })}
@@ -61,14 +75,22 @@ export function CardScreen({ productId, customerId }: { productId?: string; cust
               size="lg"
               style={styles.flex}
               loading={working}
-              onPress={() => void card.send({ kind: 'customer', id: customer.id, name: customer.name, phone: customer.phone })}
+              onPress={() => (needsConsentCheck(customer) ? setConfirming(true) : sendDirect())}
             />
           </View>
         ) : undefined
       }>
       {card.cardNode}
       {direct ? (
-        <View style={[styles.flex, { paddingTop: space.md }]}>{preview}</View>
+        <View style={[styles.flex, { paddingTop: space.md, gap: space.md }]}>
+          {preview}
+          {needsConsentCheck(customer) ? (
+            <AppText muted align="center" testID="card-no-consent">
+              {t('consent.directNote', { name: customer.name })}
+            </AppText>
+          ) : null}
+          <NoConsentSheet name={confirming ? customer.name : null} onCancel={() => setConfirming(false)} onSend={sendDirect} />
+        </View>
       ) : (
         <View style={styles.flex}>
           <RecipientPicker header={preview} onPick={(r) => void card.send(r)} disabled={working} />

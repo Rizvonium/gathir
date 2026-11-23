@@ -32,7 +32,10 @@
   },
   "errors": {
     "generic": "Something went wrong. Your data is safe.",
-    "dbFailed": "Could not open your shop data."
+    "dbFailed": "Could not open your shop data.",
+    "dbFailedBody": "Your shawls, sales and customers are still on this phone. Try again. If it keeps happening, close Gathir fully and open it again. Do not uninstall the app, and keep your latest backup file safe.",
+    "showDetails": "Show details",
+    "hideDetails": "Hide details"
   },
   "loading": "Opening your shop…",
   "relative": {

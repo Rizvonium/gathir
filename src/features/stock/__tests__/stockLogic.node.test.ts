@@ -24,11 +24,11 @@ import {
   validateDraft,
   type DraftPhoto,
 } from '../logic/draft';
-import { catalogueHref, sellHref } from '../logic/links';
+import { attentionStockHref, catalogueHref, sellHref, stockListSeed } from '../logic/links';
 import { singular, suggestNames } from '../logic/naming';
 import { filesOfDiscardedDraft, saveDraft } from '../logic/saveDraft';
 import { deletedAgeDays, historyLine, listTotals } from '../logic/view';
-import { purgeExpired } from '../logic/purge';
+import { purgeExpired, purgeExpiredOnLaunch } from '../logic/purge';
 import { doubleTapOffset, focalOffset, maxOffset, rubberBand } from '../logic/zoom';
 
 const photo = (n: string): DraftPhoto => ({ fileName: `${n}.jpg`, thumbName: `${n}.thumb.jpg`, width: 1600, height: 1200 });
@@ -66,6 +66,9 @@ describe('links', () => {
     });
     expect(sellHref('p1', [{ id: 'c1', pieces: 2 }, { id: 'c2', pieces: 1 }])).toEqual({ pathname: '/sell', params: { productId: 'p1' } });
     expect(sellHref('p1', [], 'c9')).toEqual({ pathname: '/sell', params: { productId: 'p1', colourId: 'c9' } });
+    // A quantity picked before ("Sold" for 3 in the reduce sheet) carries over; 1 is the default.
+    expect(sellHref('p1', [], 'c9', 3)).toEqual({ pathname: '/sell', params: { productId: 'p1', colourId: 'c9', qty: '3' } });
+    expect(sellHref('p1', [], 'c9', 1)).toEqual({ pathname: '/sell', params: { productId: 'p1', colourId: 'c9' } });
   });
   it('joins catalogue ids with commas', () => {
     expect(catalogueHref(['a', 'b'])).toEqual({ pathname: '/catalogue', params: { productIds: 'a,b' } });
@@ -324,5 +327,40 @@ describe('purgeExpired', () => {
     expect(res.files.sort()).toEqual(['Old-0-t.jpg', 'Old-0.jpg']);
     expect(getProductDetail(db, recent.productId)).not.toBeNull();
     expect(getProductDetail(db, old.productId)).toBeNull();
+  });
+
+  it('runs at launch without the Recently deleted screen, deletes the photo files and never throws', () => {
+    const db = createTestDb();
+    const old = addTestProduct(db, { name: 'Old', photos: 1 });
+    softDeleteProduct(db, old.productId, T0);
+    const customerId = createCustomer(db, { name: 'Gone', phone: '+919876543210' }, T0);
+    softDeleteCustomer(db, customerId, T0);
+    const deleteFiles = jest.fn();
+    expect(purgeExpiredOnLaunch(db, deleteFiles, T0 + 31 * DAY)).toBe(true);
+    expect(deleteFiles.mock.calls[0][0].sort()).toEqual(['Old-0-t.jpg', 'Old-0.jpg']);
+    expect(purgeExpired(db, T0 + 32 * DAY)).toEqual({ products: 0, customers: 0, files: [] });
+
+    const broken = new Proxy({}, {
+      get() {
+        throw new Error('db closed');
+      },
+    }) as Parameters<typeof purgeExpiredOnLaunch>[0];
+    expect(purgeExpiredOnLaunch(broken, deleteFiles, T0)).toBe(false);
+  });
+});
+
+describe('links into the Stock tab', () => {
+  it('Needs attention: the one kind shown, or every design fewest pieces first', () => {
+    expect(attentionStockHref(['low', 'low'], false, 5)).toEqual({ pathname: '/stock', params: { filter: 'low', sort: 'least', at: '5' } });
+    expect(attentionStockHref(['out'], false, 5)).toEqual({ pathname: '/stock', params: { filter: 'out', sort: 'least', at: '5' } });
+    expect(attentionStockHref(['out', 'low'], false, 5)).toEqual({ pathname: '/stock', params: { filter: 'all', sort: 'least', at: '5' } });
+    // Cut short after sold-out rows: low ones may follow.
+    expect(attentionStockHref(['out', 'out'], true, 5)).toEqual({ pathname: '/stock', params: { filter: 'all', sort: 'least', at: '5' } });
+  });
+
+  it('reads the params back, ignoring unknown values', () => {
+    expect(stockListSeed({})).toBeNull();
+    expect(stockListSeed({ filter: 'low', sort: 'least', at: '5' })).toEqual({ key: 'low:least:5', filter: 'low', sort: 'least' });
+    expect(stockListSeed({ filter: 'bogus' })).toMatchObject({ filter: 'all', sort: 'newest' });
   });
 });

@@ -12,6 +12,7 @@ import {
   parseAttempts,
   parseStoredPin,
   pressKey,
+  lockoutFor,
   registerFailure,
   safeReturnTo,
   lockBlocksBack,
@@ -45,7 +46,8 @@ describe('pinLogic', () => {
     expect(parseStoredPin('{bad')).toBeNull();
     expect(parseStoredPin(JSON.stringify({ v: 1, salt: 's', hash: 'h' }))).toEqual({ v: 1, salt: 's', hash: 'h' });
     expect(parseAttempts('nope')).toEqual(NO_ATTEMPTS);
-    expect(parseAttempts(JSON.stringify({ fails: 2.7, lockedUntil: 5 }))).toEqual({ fails: 2, lockedUntil: 5 });
+    expect(parseAttempts(JSON.stringify({ fails: 2.7, lockedUntil: 5 }))).toEqual({ fails: 2, lockedUntil: 5, rounds: 0 });
+    expect(parseAttempts(JSON.stringify({ fails: 1, lockedUntil: null, rounds: 3 }))).toEqual({ fails: 1, lockedUntil: null, rounds: 3 });
   });
 
   it('pauses for 30 s after 5 wrong PINs', () => {
@@ -57,6 +59,25 @@ describe('pinLogic', () => {
     expect(lockoutRemaining(a, 1000)).toBe(LOCKOUT_MS);
     expect(secondsLeft(lockoutRemaining(a, 1000 + 2500))).toBe(28);
     expect(lockoutRemaining(a, 1000 + LOCKOUT_MS)).toBe(0);
+  });
+
+  it('makes each further pause longer until a correct PIN, up to an hour (no overnight brute force)', () => {
+    let a = NO_ATTEMPTS;
+    let t = 0;
+    const pauses: number[] = [];
+    for (let round = 0; round < 7; round++) {
+      for (let i = 0; i < MAX_TRIES; i++) a = registerFailure({ ...a, lockedUntil: null }, t);
+      pauses.push(lockoutRemaining(a, t));
+      t += lockoutRemaining(a, t);
+    }
+    expect(pauses).toEqual([30_000, 60_000, 300_000, 900_000, 3_600_000, 3_600_000, 3_600_000]);
+    expect(lockoutFor(99)).toBe(3_600_000);
+    // 10,000 PINs at 5 per hour is far more than a night at the counter.
+    expect((10_000 / MAX_TRIES) * lockoutFor(99)).toBeGreaterThan(30 * 24 * 3_600_000);
+    // Only a correct PIN (NO_ATTEMPTS) starts again from 30 s.
+    a = NO_ATTEMPTS;
+    for (let i = 0; i < MAX_TRIES; i++) a = registerFailure(a, t);
+    expect(lockoutRemaining(a, t)).toBe(LOCKOUT_MS);
   });
 
   it('keypad: backspace and no 5th digit', () => {

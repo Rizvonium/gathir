@@ -13,7 +13,7 @@ import { canUseFingerprint, clearPin } from './pinStore';
 export function useAppLockSettings() {
   const { t } = useTranslation('settings');
   const toast = useToast();
-  const pinSet = useDbQuery(readPinFlag, []);
+  const pinSet = useDbQuery(readPinFlag, [], { tables: ['shop_settings'] });
   const [fingerprint, setFingerprint] = useState(false);
   const [removing, setRemoving] = useState(false);
 

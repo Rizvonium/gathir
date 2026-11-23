@@ -32,6 +32,15 @@ export function nextSlide(index: number, total: number): number {
 }
 
 /** Ken Burns drift for a slide: direction alternates so consecutive photos do not move alike. */
+/**
+ * Whether the Ken Burns drift runs: only on the visible slide, while the Showroom screen is on
+ * screen (focused, not under the product card or catalogue it pushed, and the app in the
+ * foreground), and reduced motion is off.
+ */
+export function kenBurnsRunning(state: { active: boolean; onScreen: boolean; reducedMotion: boolean }): boolean {
+  return state.active && state.onScreen && !state.reducedMotion;
+}
+
 export function kenBurnsPose(index: number, width: number, height: number, t: number): { scale: number; x: number; y: number } {
   'worklet';
   const dirX = index % 2 === 0 ? 1 : -1;

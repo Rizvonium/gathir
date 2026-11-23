@@ -90,3 +90,25 @@ it('sorts from the sheet', async () => {
   expect(mockState.last).toMatchObject({ sort: 'spend' });
   expect(screen.getByText('Sort: Most spent')).toBeTruthy();
 });
+
+it('opened from Home\'s "See all" follow-ups: starts with "Follow-up due" on, and again on the next link', async () => {
+  mockState.rows = [customerRow()];
+  const { customerListSeed } = jest.requireActual('../logic/links') as typeof import('../logic/links');
+  const { useState } = jest.requireActual<typeof import('react')>('react');
+  const { Pressable } = jest.requireActual<typeof import('react-native')>('react-native');
+  function Harness() {
+    const [at, setAt] = useState('1');
+    return (
+      <>
+        <Pressable testID="next-link" onPress={() => setAt('2')} />
+        <CustomersScreen seed={customerListSeed({ filter: 'due', at })} />
+      </>
+    );
+  }
+  await renderScreen(<Harness />);
+  expect(mockState.last).toMatchObject({ followUpDue: true });
+  await fireEvent.press(screen.getByTestId('customers-filter-due'));
+  expect(mockState.last).toMatchObject({ followUpDue: undefined });
+  await fireEvent.press(screen.getByTestId('next-link'));
+  expect(mockState.last).toMatchObject({ followUpDue: true });
+});

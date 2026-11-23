@@ -104,3 +104,37 @@ export function dirUsage(dir: Directory, filter: (name: string) => boolean = () 
   }
   return { bytes, files };
 }
+
+/** Prefix of copies made only so another app can open them (see shareableUri). */
+export const SHARE_COPY_PREFIX = 'share-';
+
+function underDir(uri: string, dir: Directory): boolean {
+  const root = dir.uri.replace(/\/+$/, '');
+  return uri === root || uri.startsWith(`${root}/`);
+}
+
+/**
+ * True when react-native-share can hand `uri` to another app: a content:// URI (passed through
+ * as is) or a file inside the internal cache folder (its FileProvider's only usable root).
+ * Anything else would reach WhatsApp as a null attachment.
+ */
+export function isShareableUri(uri: string | null | undefined): boolean {
+  if (!uri) return false;
+  if (uri.startsWith('content://')) return true;
+  return uri.startsWith('file://') && underDir(uri, Paths.cache) && !uri.includes('/../');
+}
+
+/**
+ * A URI WhatsApp can be handed. react-native-share's FileProvider only serves the app's internal
+ * cache folder (and Download): a file anywhere else (photos in the documents folder, a card that
+ * view-shot wrote to the external cache) becomes a null attachment. Such files are copied into
+ * `<cache>/exports` first (cleaned up after a day like every export). Non-file URIs pass through.
+ */
+export async function shareableUri(uri: string): Promise<string> {
+  if (!uri.startsWith('file://') || underDir(uri, Paths.cache)) return uri;
+  const source = new File(uri);
+  const base = source.name.replace(/[^A-Za-z0-9._-]/g, '_').slice(-100) || 'file';
+  const copy = freshExportFile(`${SHARE_COPY_PREFIX}${base}`);
+  await copy.write(await source.bytes());
+  return copy.uri;
+}

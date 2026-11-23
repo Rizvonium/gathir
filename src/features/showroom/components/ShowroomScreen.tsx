@@ -5,7 +5,7 @@
  */
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { useKeepAwake } from 'expo-keep-awake';
-import { router } from 'expo-router';
+import { router, useIsFocused } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
@@ -15,12 +15,13 @@ import { useTranslation } from 'react-i18next';
 
 import type { ProductListRow } from '@/db/repo/productQueries';
 import { AppText, Chip, EmptyState, playHaptic, useReduceMotionEnabled } from '@/ui/components';
-import { LoomEmptyState, PatternHeader } from '@/ui/patterns';
+import { LoomEmptyState, PatternHeader, useAppActive } from '@/ui/patterns';
 import { useTheme } from '@/ui/theme';
 
 import { useIdle } from '../hooks/useIdle';
 import { useShowroom } from '../hooks/useShowroom';
 import { useShowroomExit } from '../hooks/useShowroomExit';
+import { enterShowroom } from '../logic/session';
 import { ATTRACT_STEP_MS, IDLE_MS, nextSlide } from '../logic/showroom';
 import { ExitMark } from './ExitMark';
 import { SendMeThisSheet, type Chosen } from './SendMeThisSheet';
@@ -32,11 +33,17 @@ const HINT_MS = 3_000;
 
 export function ShowroomScreen() {
   useKeepAwake();
+  // While mounted: links are ignored, reminders stay quiet and their taps wait (see logic/session).
+  useEffect(() => enterShowroom(), []);
   const { t } = useTranslation('showroom');
   const { colors, space, radius } = useTheme();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const reduced = useReduceMotionEnabled();
+  // The slide's drift pauses under the card / catalogue screens "Send me this" pushes.
+  const focused = useIsFocused();
+  const appActive = useAppActive();
+  const onScreen = focused && appActive;
   const s = useShowroom();
 
   const listRef = useRef<FlashListRef<ProductListRow>>(null);
@@ -116,7 +123,7 @@ export function ShowroomScreen() {
             extraData={`${index}-${reduced}`}
             style={StyleSheet.absoluteFill}
             renderItem={({ item, index: i }) => (
-              <ShowroomSlide product={item} index={i} width={width} height={height} active={i === index} reducedMotion={reduced} onZoomChange={setZoomed} />
+              <ShowroomSlide product={item} index={i} width={width} height={height} active={i === index} onScreen={onScreen} reducedMotion={reduced} onZoomChange={setZoomed} />
             )}
           />
 
@@ -173,6 +180,7 @@ export function ShowroomScreen() {
         onLiked={(id, ids) => setLiked((m) => ({ ...m, [id]: ids }))}
         onSendCard={sendCard}
         onSendMini={sendMini}
+        pinSet={s.pinSet}
       />
     </View>
   );

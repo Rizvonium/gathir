@@ -10,6 +10,7 @@ import { useEffect, useRef } from 'react';
 
 import { addFollowUp, completeFollowUp, deleteEvent, openFollowUpsFor, reopenFollowUp, setFollowUpNotification } from '@/db/repo/events';
 import type { DbOrTx } from '@/db/types';
+import { isShowroomActive, whenShowroomClosed } from '@/features/showroom/logic/session';
 
 import { customerHref } from './logic/links';
 
@@ -159,13 +160,23 @@ export async function removeFollowUp(database: DbOrTx, eventId: string, notifica
 
 let handlerInstalled = false;
 
-/** Shows reminders while the app is open too (otherwise Android drops them silently in foreground). */
+/**
+ * How a reminder that arrives while the app is open is shown. Normally as a banner (otherwise
+ * Android drops it silently in the foreground). While a Showroom is open the phone may be in a
+ * customer's hands, and a reminder carries another customer's name and the seller's note: it is
+ * not shown at all (follow-ups stay on Home, the backup reminder on its Home card). Pure.
+ */
+export function foregroundPresentation(showroomOpen: boolean): Notifications.NotificationBehavior {
+  return { shouldShowBanner: !showroomOpen, shouldShowList: !showroomOpen, shouldPlaySound: false, shouldSetBadge: false };
+}
+
+/** Shows reminders while the app is open too, except over the Showroom (see foregroundPresentation). */
 export function installFollowUpNotificationHandler(): void {
   if (handlerInstalled) return;
   handlerInstalled = true;
   try {
     Notifications.setNotificationHandler({
-      handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: false, shouldSetBadge: false }),
+      handleNotification: async () => foregroundPresentation(isShowroomActive()),
     });
   } catch {
     handlerInstalled = false;
@@ -194,6 +205,7 @@ export function useFollowUpNotificationRouting(): void {
     const id = response?.notification.request.identifier ?? null;
     if (!customerId || !id || handled.current === id) return;
     handled.current = id;
-    router.push(customerHref(customerId));
+    // Over the Showroom this would open a private profile without the PIN: wait until it is left.
+    whenShowroomClosed('notification', () => router.push(customerHref(customerId)));
   }, [response]);
 }

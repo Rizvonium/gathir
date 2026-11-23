@@ -59,7 +59,7 @@ Typed routes are on: `npm run typecheck` first writes `.expo/types/router.d.ts` 
 | `/backup`, `/backup/result` | weekly reminder notification taps open `/backup` |
 | `/lock?mode=` set / verify / change `&returnTo=` | `returnTo` must start with `/`; success does `router.replace(returnTo)`, else back. Close/back in verify mode only goes back, so never guard a screen by *replacing* it with `/lock`. Verify for `returnTo=/showroom/leave` blocks Android back (only the close button leaves) |
 
-Root layout order: fonts + migrations → seed → `ToastProvider` → `AppLockGate` (applies only once a PIN is set **and** onboarding is finished) → Stack, plus notification-tap routing (follow-up → `/customer/[id]`, backup → `/backup`).
+Root layout order: fonts + migrations → seed → `ToastProvider` → `AppLockGate` (applies only once a PIN is set **and** onboarding is finished) → Stack, plus launch routing (follow-up → `/customer/[id]`, backup → `/backup`, a photo picked just before Android closed the app → back to its product wizard).
 
 ## Data rules
 - drizzle's expo-sqlite driver is **synchronous**. `db.transaction((tx) => { … })` callbacks must not be `async`. Inside, use `.run()`, `.get()`, `.all()`.

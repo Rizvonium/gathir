@@ -4,18 +4,29 @@
  */
 import { useDeferredValue, useState } from 'react';
 
-import { useCategories, useLowStockLevel, useProducts } from '@/db/hooks';
+import { useCategories, useHasAnyProduct, useLowStockLevel, useProducts } from '@/db/hooks';
 import type { ProductFilter, ProductListRow, ProductSort } from '@/db/repo/productQueries';
 
+import type { StockListSeed } from '../logic/links';
 import { listTotals } from '../logic/view';
 
 export type StockView = 'grid' | 'list';
 
-export function useStockList() {
+/** `seed` comes from the tab's link (e.g. Home's "See all" needs attention), applied once per link. */
+export function useStockList(seed: StockListSeed | null = null) {
   const [search, setSearch] = useState('');
   const [categoryId, setCategoryId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<ProductFilter>('all');
-  const [sort, setSort] = useState<ProductSort>('newest');
+  const [filter, setFilter] = useState<ProductFilter>(seed?.filter ?? 'all');
+  const [sort, setSort] = useState<ProductSort>(seed?.sort ?? 'newest');
+  // A new link while the tab is already open: apply it (adjusting state during render).
+  const [seedKey, setSeedKey] = useState(seed?.key ?? null);
+  if (seed && seed.key !== seedKey) {
+    setSeedKey(seed.key);
+    setSearch('');
+    setCategoryId(null);
+    setFilter(seed.filter);
+    setSort(seed.sort);
+  }
   const [view, setView] = useState<StockView>('grid');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
@@ -23,8 +34,9 @@ export function useStockList() {
   const lowThreshold = useLowStockLevel();
   const categories = useCategories();
   const rows = useProducts({ search: deferredSearch, categoryId, filter, sort });
-  // Distinguishes "no products at all" (first-use state) from "filtered to nothing".
-  const anyProducts = useProducts({}).length > 0;
+  // Distinguishes "no products at all" (first-use state) from "filtered to nothing". An EXISTS
+  // check, not a second full stock list.
+  const anyProducts = useHasAnyProduct();
 
   const filtered = deferredSearch.trim() !== '' || categoryId !== null || filter !== 'all';
   const visibleIds = new Set(rows.map((r) => r.id));

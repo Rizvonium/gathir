@@ -16,7 +16,7 @@ import { photoUri, thumbUri } from '@/lib/photos';
 import { springs, timing } from '@/ui/motion';
 import { PatternPlaceholder } from '@/ui/patterns';
 
-import { clamp, DOUBLE_TAP_ZOOM, doubleTapOffset, focalOffset, KEN_BURNS_MS, kenBurnsPose, MAX_ZOOM, maxOffset, MIN_ZOOM, rubberBand } from '../logic/showroom';
+import { clamp, DOUBLE_TAP_ZOOM, doubleTapOffset, focalOffset, KEN_BURNS_MS, kenBurnsPose, kenBurnsRunning, MAX_ZOOM, maxOffset, MIN_ZOOM, rubberBand } from '../logic/showroom';
 
 export type ShowroomSlideProps = {
   product: ProductListRow;
@@ -25,13 +25,18 @@ export type ShowroomSlideProps = {
   height: number;
   /** The slide on screen: only it drifts. */
   active: boolean;
+  /**
+   * The Showroom screen is focused and the app in the foreground. False while "Send me this"
+   * has pushed the card or catalogue screen on top: the drift stops (the zoom is kept).
+   */
+  onScreen: boolean;
   reducedMotion: boolean;
   onZoomChange: (zoomed: boolean) => void;
 };
 
 const DRIFT = { duration: KEN_BURNS_MS, easing: Easing.inOut(Easing.quad), reduceMotion: ReduceMotion.System };
 
-export function ShowroomSlide({ product, index, width, height, active, reducedMotion, onZoomChange }: ShowroomSlideProps) {
+export function ShowroomSlide({ product, index, width, height, active, onScreen, reducedMotion, onZoomChange }: ShowroomSlideProps) {
   const { t } = useTranslation('showroom');
   const drift = useSharedValue(0);
   const scale = useSharedValue(1);
@@ -40,23 +45,28 @@ export function ShowroomSlide({ product, index, width, height, active, reducedMo
   const start = useSharedValue({ scale: 1, tx: 0, ty: 0, fx: 0, fy: 0 });
   const panEnabled = useSharedValue(false);
 
-  // Drift only on the visible slide; back to rest when it leaves or motion is reduced.
+  // Drift only on the visible slide of a focused, foreground Showroom; back to rest when it leaves,
+  // is covered by a pushed screen, or motion is reduced (an infinite loop must not run unseen).
+  const drifting = kenBurnsRunning({ active, onScreen, reducedMotion });
   useEffect(() => {
-    if (active && !reducedMotion) {
+    if (drifting) {
       drift.set(0);
       drift.set(withRepeat(withTiming(1, DRIFT), -1, true));
     } else {
       cancelAnimation(drift);
       drift.set(withTiming(0, timing.standard));
     }
-    if (!active) {
-      scale.set(1);
-      tx.set(0);
-      ty.set(0);
-      panEnabled.set(false);
-    }
     return () => cancelAnimation(drift);
-  }, [active, reducedMotion, drift, scale, tx, ty, panEnabled]);
+  }, [drifting, drift]);
+
+  // Leaving the slide resets its zoom (being covered by another screen does not).
+  useEffect(() => {
+    if (active) return;
+    scale.set(1);
+    tx.set(0);
+    ty.set(0);
+    panEnabled.set(false);
+  }, [active, scale, tx, ty, panEnabled]);
 
   const settle = (target: number, x: number, y: number) => {
     'worklet';

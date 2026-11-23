@@ -5,11 +5,10 @@
  * "See the PDF" opens the real preview for sellers who want to check first.
  */
 import { router } from 'expo-router';
-import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { formatDate, relativeDaysKey, startOfDay } from '@/lib/dates';
+import { formatDate, relativeDaysKey } from '@/lib/dates';
 import { formatPhone } from '@/lib/phone';
 import { formatINR, formatNumber } from '@/lib/money';
 import { PaisleyConfetti } from '@/ui/patterns';
@@ -19,6 +18,7 @@ import { useTheme } from '@/ui/theme';
 import { ToggleRow } from '@/features/settings/components/ToggleRow';
 
 import { useReportPeriod } from '../hooks/useReportPeriod';
+import { useReportVisit } from '../hooks/useReportVisit';
 import { useReportSend } from '../hooks/useReportSend';
 import type { SalesSummary } from '@/db/repo/saleQueries';
 
@@ -28,19 +28,14 @@ import { PeriodPicker } from './PeriodPicker';
 
 export const OWNER_SETTINGS_FROM_REPORT = `/settings/owner?returnTo=${encodeURIComponent('/report')}`;
 
-/** `initialFrom/To` (epoch ms) open the screen on Choose dates, e.g. "Make again" from history. */
-export function ReportScreen({ initialFrom, initialTo }: { initialFrom?: number; initialTo?: number } = {}) {
+/**
+ * `initialFrom/To` (epoch ms) open the screen on Choose dates, e.g. "Make again" from history;
+ * `visit` changes with each such link so the open screen applies it again.
+ */
+export function ReportScreen({ initialFrom, initialTo, visit }: { initialFrom?: number; initialTo?: number; visit?: string } = {}) {
   const { t } = useTranslation('report');
   const { space } = useTheme();
-  const reset = useReportFlow((s) => s.reset);
-  useEffect(() => {
-    reset(Date.now());
-    if (initialFrom !== undefined && initialTo !== undefined) {
-      useReportFlow.getState().set({ kind: 'custom', customFrom: startOfDay(initialFrom), customTo: startOfDay(initialTo) });
-    }
-    // Once per visit.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reset]);
+  useReportVisit(initialFrom, initialTo, visit);
 
   const p = useReportPeriod();
   const s = useReportSend(p);

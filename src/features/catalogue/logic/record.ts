@@ -56,7 +56,8 @@ export function recordLikedItems(db: DbOrTx, customerId: string, productIds: rea
 export function quickAddCustomer(db: DbOrTx, input: { name: string; phone: string }, now: number = Date.now()): { id: string; name: string } {
   const name = input.name.trim() || formatPhone(input.phone);
   try {
-    return { id: createCustomer(db, { name, phone: input.phone }, now), name };
+    // Added from "Send me this": the customer asked for this shawl to be sent, which is their yes.
+    return { id: createCustomer(db, { name, phone: input.phone, whatsappOk: true }, now), name };
   } catch (e) {
     if (e instanceof DuplicateCustomerError) return { id: e.existingId, name: e.existingName };
     throw e;

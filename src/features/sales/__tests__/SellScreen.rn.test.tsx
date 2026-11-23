@@ -67,6 +67,8 @@ jest.mock('@/pdf', () => ({ getPdfFontCss: jest.fn(), renderPdf: jest.fn() }));
 jest.mock('@/share', () => ({ shareFileToWhatsApp: jest.fn() }));
 jest.mock('../hooks/useCustomerPicker', () => ({ useCustomerPicker: () => ({ results: [], findSavedByPhone: () => null }) }));
 jest.mock('../logic/pickContact', () => ({ pickContact: jest.fn() }));
+const mockSendBill = jest.fn();
+jest.mock('../logic/sendBill', () => ({ sendBill: (...a: unknown[]) => mockSendBill(...a) }));
 
 let mockClose: () => void = () => undefined;
 const mockBack = jest.fn(() => mockClose());
@@ -105,6 +107,25 @@ describe('Sell sheet', () => {
     expect(mockVoidSale).toHaveBeenCalledWith({}, 's1');
     expect(mockCancelSale).not.toHaveBeenCalled();
     expect(screen.getByText('Sale undone. Pieces are back in stock.')).toBeTruthy();
+  });
+
+  it('a walk-in sale offers "Send bill" on the toast (share sheet, no number)', async () => {
+    mockCreateSale.mockReturnValue({ saleId: 's7', billNo: 'B-2026-0007', totalPaise: 650_000, customerId: null });
+    mockSendBill.mockResolvedValue({ status: 'fallback_shared', hadPhone: false });
+    await renderWithTheme(<Harness params={{ productId: 'p1' }} />);
+    await fireEvent.press(screen.getByText('Sell · ₹6,500'));
+    expect(mockBack).toHaveBeenCalled();
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Send bill'));
+    });
+    expect(mockSendBill).toHaveBeenCalledWith({}, 's7', expect.anything());
+  });
+
+  it('starts on the quantity picked in the reduce sheet ("Sold" for 2)', async () => {
+    mockCreateSale.mockReturnValue({ saleId: 's8', billNo: 'B', totalPaise: 1_300_000, customerId: null });
+    await renderWithTheme(<Harness params={{ productId: 'p1', colourId: 'red', qty: 2 }} />);
+    await fireEvent.press(screen.getByTestId('sell-submit'));
+    expect(mockCreateSale.mock.calls[0][1]).toMatchObject({ items: [{ colourId: 'red', qty: 2, ratePaise: 650_000 }] });
   });
 
   it('Undo falls back to a return when the sale can no longer be voided', async () => {

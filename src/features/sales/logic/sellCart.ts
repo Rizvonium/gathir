@@ -73,11 +73,19 @@ export function autoColour(product: ProductOption, lines: readonly SellLine[], p
   return free.length === 1 ? free[0].id : null;
 }
 
-/** Starts a draft for this product: colour pre-picked when obvious, 1 piece, the usual rate. */
-export function pickProduct(state: SellState, product: ProductOption, preferColourId?: string | null): SellState {
+/**
+ * Starts a draft for this product: colour pre-picked when obvious, the usual rate, and 1 piece
+ * (or the quantity already chosen elsewhere, e.g. "Sold" in the reduce sheet, kept within what
+ * the pre-picked colour has left).
+ */
+export function pickProduct(state: SellState, product: ProductOption, preferColourId?: string | null, qty = 1): SellState {
+  const colourId = autoColour(product, state.lines, preferColourId);
+  const colour = colourId ? product.colours.find((c) => c.id === colourId) : undefined;
+  const wanted = Number.isFinite(qty) ? Math.max(1, Math.round(qty)) : 1;
+  const max = colour ? availableFor(colour, state.lines) : 1;
   return {
     ...state,
-    draft: { productId: product.id, colourId: autoColour(product, state.lines, preferColourId), qty: 1, ratePaise: product.ratePaise },
+    draft: { productId: product.id, colourId, qty: Math.max(1, Math.min(wanted, max)), ratePaise: product.ratePaise },
   };
 }
 

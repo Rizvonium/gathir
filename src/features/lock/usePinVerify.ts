@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { playHaptic } from '@/ui/components';
 
-import { PIN_LENGTH, lockoutRemaining, pressKey, secondsLeft, triesLeft, type PadKey } from './pinLogic';
+import { PIN_LENGTH, lockoutRemaining, minutesLeft, pressKey, secondsLeft, triesLeft, type PadKey } from './pinLogic';
 import { canUseFingerprint, readAttempts, unlockWithFingerprint, verifyPin } from './pinStore';
 
 export type PinVerifyState = {
@@ -122,7 +122,11 @@ export function usePinVerify({ onSuccess, autoFingerprint = true }: { onSuccess:
 
   return {
     value,
-    message: paused ? t('verify.paused', { seconds: secondsLeft(remaining) }) : message,
+    message: paused
+      ? remaining > 90_000
+        ? t('verify.pausedMinutes', { count: minutesLeft(remaining) })
+        : t('verify.paused', { seconds: secondsLeft(remaining) })
+      : message,
     messageTone: paused ? 'danger' : tone,
     disabled: paused || checking,
     shakeSignal,

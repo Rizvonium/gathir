@@ -69,6 +69,7 @@
     "noPhone": "No phone number saved",
     "addPhone": "Add phone number",
     "noCatalogues": "Does not want catalogues on WhatsApp",
+    "noCataloguesAsk": "They said no to catalogues. You will be asked before anything is sent.",
     "stats": {
       "spent": "Total spent",
       "purchases": "Purchases",
@@ -259,6 +260,8 @@
     "addedOne": "Added to {{name}}’s catalogue",
     "open": "Open",
     "pickCustomer": "Add to a customer’s catalogue",
+    "newCustomer": "New customer",
+    "addNewAndSave": "Save customer and add this design",
     "addTo": "Add to {{name}}’s catalogue",
     "alreadyIn": "In their catalogue",
     "sheet": {

@@ -12,5 +12,6 @@ export { LoomEmptyState, type LoomEmptyStateProps } from './LoomEmptyState';
 export { patternInks, inkAt } from './inks';
 export { productInitials } from './placeholderArt';
 export { usePatternLoop, type PatternLoopState } from './usePatternLoop';
+export { useAppActive } from './useAppActive';
 export { useReducedMotionLive } from './useReducedMotionLive';
 export * as patternGeometry from './geometry';

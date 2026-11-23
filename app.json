@@ -82,6 +82,7 @@
       [
         "expo-notifications",
         {
+          "icon": "./assets/images/notification-icon.png",
           "color": "#C62F17"
         }
       ],
@@ -94,7 +95,8 @@
         }
       ],
       "expo-font",
-      "expo-asset"
+      "expo-asset",
+      "./plugins/withRecentsPrivacy"
     ],
     "extra": {
       "ownerWhatsApp": "",

@@ -1,7 +1,10 @@
 /**
  * "Send to owner on WhatsApp" (PLAN §7): PDF → report record → WhatsApp straight into the
  * owner's chat → when the seller is back, "Marked as sent ✓" with Undo and a celebration.
- * Backing out marks nothing. A retry after backing out reuses the same PDF and report number.
+ * shareFileToWhatsApp resolves only once the seller has come back to Gathir, so the mark, the
+ * celebration and the Undo toast happen in front of them. WhatsApp does not tell us whether they
+ * pressed send: a back-out comes back as "Marked as sent" too, and Undo is the way out (a back-out
+ * WhatsApp does report marks nothing). A retry after backing out reuses the same PDF and report number.
  */
 import { File } from 'expo-file-system';
 import { router } from 'expo-router';

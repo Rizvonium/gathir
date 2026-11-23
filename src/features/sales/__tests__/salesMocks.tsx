@@ -17,7 +17,7 @@ export const patterns = {
 export function makeToastModule() {
   const React = jest.requireActual<typeof import('react')>('react');
   const { Pressable, Text } = jest.requireActual<typeof import('react-native')>('react-native');
-  type Opts = { message: string; actionLabel?: string; onAction?: () => void };
+  type Opts = { message: string; actionLabel?: string; onAction?: () => void; secondaryActionLabel?: string; onSecondaryAction?: () => void };
   const Ctx = React.createContext<{ show: (o: Opts) => string; hide: () => void } | null>(null);
   function ToastProvider({ children }: { children: ReactNode }) {
     const [toast, setToast] = React.useState<Opts | null>(null);
@@ -26,6 +26,9 @@ export function makeToastModule() {
       <Ctx value={api}>
         {children}
         {toast ? <Text>{toast.message}</Text> : null}
+        {toast?.secondaryActionLabel ? (
+          <Pressable accessibilityRole="button" accessibilityLabel={toast.secondaryActionLabel} onPress={() => (setToast(null), toast.onSecondaryAction?.())} />
+        ) : null}
         {toast?.actionLabel ? (
           <Pressable accessibilityRole="button" accessibilityLabel={toast.actionLabel} onPress={() => (setToast(null), toast.onAction?.())} />
         ) : null}
@@ -37,5 +40,6 @@ export function makeToastModule() {
     if (!api) throw new Error('no toast provider');
     return api;
   };
-  return { ToastProvider, useToast };
+  // AppSheet renders the in-sheet toast outlet; this stand-in shows toasts at the root only.
+  return { ToastProvider, useToast, ToastOutlet: () => null };
 }

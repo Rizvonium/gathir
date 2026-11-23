@@ -21,16 +21,23 @@ function removeDir(name: string): void {
   if (dir.exists) dir.delete();
 }
 
+/** Starts a fresh, empty staging folder (stagePhoto then adds files to it one by one). */
+export function beginStaging(): void {
+  removeDir(STAGING_DIR_NAME);
+  documentSubdir(STAGING_DIR_NAME).create({ intermediates: true });
+}
+
+/** Writes one photo into the staging folder (call beginStaging first). */
+export async function stagePhoto(name: string, bytes: Uint8Array): Promise<void> {
+  const file = new File(documentSubdir(STAGING_DIR_NAME), name);
+  file.create();
+  await file.write(bytes);
+}
+
 /** Writes all photos into a fresh staging folder, one file at a time. */
 export async function stagePhotos(photos: ReadonlyMap<string, Uint8Array>): Promise<void> {
-  removeDir(STAGING_DIR_NAME);
-  const staging = documentSubdir(STAGING_DIR_NAME);
-  staging.create({ intermediates: true });
-  for (const [name, bytes] of photos) {
-    const file = new File(staging, name);
-    file.create();
-    await file.write(bytes);
-  }
+  beginStaging();
+  for (const [name, bytes] of photos) await stagePhoto(name, bytes);
 }
 
 /** Makes the staged folder live and keeps the previous one as photos_old. */

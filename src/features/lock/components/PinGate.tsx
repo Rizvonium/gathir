@@ -11,7 +11,7 @@ import { readPinFlag } from '../pinFlag';
 import { PinVerifyPanel } from './PinVerifyPanel';
 
 export function PinGate({ children, title, subtitle }: { children: ReactNode; title?: string; subtitle?: string }) {
-  const pinSet = useDbQuery(readPinFlag, []);
+  const pinSet = useDbQuery(readPinFlag, [], { tables: ['shop_settings'] });
   const [ok, setOk] = useState(false);
   if (!pinSet || ok) return <>{children}</>;
   return (

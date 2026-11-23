@@ -8,8 +8,8 @@ import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 
@@ -20,7 +20,11 @@ import { recoverInterruptedRestore } from '@/features/backup/photoFolderSwap';
 import { useBackupReminderRouting } from '@/features/backup/useBackupReminderRouting';
 import { useFollowUpNotificationRouting } from '@/features/customers/followUpNotifications';
 import { AppLockGate } from '@/features/lock/AppLockGate';
+import { usePendingPickRouting } from '@/features/stock/hooks/usePendingPickRouting';
+import { purgeExpiredOnLaunch } from '@/features/stock/logic/purge';
 import { cleanupOldExports } from '@/lib/files';
+import { deletePhotoFiles } from '@/lib/photos';
+import { DataErrorScreen } from '@/ui/components/DataErrorScreen';
 import { ToastProvider } from '@/ui/components/Toast';
 import { AppThemeProvider, useTheme } from '@/ui/theme';
 
@@ -31,10 +35,14 @@ void SplashScreen.preventAutoHideAsync();
 recoverInterruptedRestore();
 cleanupOldExports();
 
-/** Notification taps: follow-up reminder → customer profile, backup reminder → /backup (cold start too). */
+/**
+ * Launch routing: follow-up reminder → customer profile, backup reminder → /backup (cold start
+ * too), and a photo picked just before Android closed the app → back to the wizard that took it.
+ */
 function NotificationRouting() {
   useFollowUpNotificationRouting();
   useBackupReminderRouting();
+  usePendingPickRouting();
   return null;
 }
 
@@ -68,7 +76,13 @@ function Navigator() {
   );
 }
 
+/** "Try again" on the data error remounts the app root, so the database is opened afresh. */
 export default function RootLayout() {
+  const [attempt, setAttempt] = useState(0);
+  return <AppRoot key={attempt} onRetry={() => setAttempt((n) => n + 1)} />;
+}
+
+function AppRoot({ onRetry }: { onRetry: () => void }) {
   const [fontsLoaded] = useFonts({
     Fraunces_600SemiBold,
     Fraunces_700Bold,
@@ -80,7 +94,11 @@ export default function RootLayout() {
   const { success, error } = useMigrations(db, migrations);
 
   useEffect(() => {
-    if (success) ensureSeedData(db, (Constants.expoConfig?.extra as { ownerWhatsApp?: string } | undefined)?.ownerWhatsApp ?? '');
+    if (!success) return;
+    ensureSeedData(db, (Constants.expoConfig?.extra as { ownerWhatsApp?: string } | undefined)?.ownerWhatsApp ?? '');
+    // Recently deleted older than 30 days is removed for real on every launch (not only when
+    // the seller opens that screen): customers' names, phones and sale snapshots included.
+    purgeExpiredOnLaunch(db, deletePhotoFiles);
   }, [success]);
 
   const ready = fontsLoaded && success;
@@ -89,10 +107,11 @@ export default function RootLayout() {
   }, [ready, error]);
 
   if (error) {
+    // Translated, themed and in plain words; the technical message only behind "Show details".
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>Could not open your shop data.{'\n'}{error.message}</Text>
-      </View>
+      <AppThemeProvider>
+        <DataErrorScreen details={error.message} onRetry={onRetry} />
+      </AppThemeProvider>
     );
   }
   if (!ready) return null;
@@ -115,6 +134,4 @@ export default function RootLayout() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: '#FFF8EE' },
-  errorText: { color: '#2B1A12', fontSize: 16, textAlign: 'center' },
 });

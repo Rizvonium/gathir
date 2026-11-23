@@ -30,7 +30,7 @@ export function useSalesList(): { model: SalesListModel; actions: SalesListActio
   const rows = useSales({ ...range, payment: payment ?? undefined });
   const isEmpty = rows.length === 0;
   // Only asked when the filtered list is empty: "never sold anything" gets its own empty state.
-  const anySalesEver = useDbQuery((d) => (isEmpty ? hasAnySale(d) : true), [isEmpty]);
+  const anySalesEver = useDbQuery((d) => (isEmpty ? hasAnySale(d) : true), [isEmpty], { tables: ['sales'] });
   const { items, stickyIndices } = groupSalesByDay(rows);
   return {
     model: {

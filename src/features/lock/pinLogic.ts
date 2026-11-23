@@ -7,8 +7,13 @@ import { SHOWROOM_LEAVE_PATH } from '@/features/showroom/logic/leave';
 export const PIN_LENGTH = 4;
 /** Wrong PINs allowed before a pause. */
 export const MAX_TRIES = 5;
-/** Pause after MAX_TRIES wrong PINs. */
+/** Pause after the first MAX_TRIES wrong PINs. */
 export const LOCKOUT_MS = 30_000;
+/**
+ * Each further round of MAX_TRIES wrong PINs (with no correct PIN or fingerprint between) pauses
+ * longer, up to an hour a round: guessing all 10,000 PINs then takes months, not one night.
+ */
+export const LOCKOUT_STEPS_MS: readonly number[] = [LOCKOUT_MS, 60_000, 5 * 60_000, 15 * 60_000, 60 * 60_000];
 /** Coming back after this long in the background asks for the PIN again. */
 export const BACKGROUND_LOCK_MS = 5 * 60_000;
 
@@ -54,8 +59,12 @@ export function sameHash(a: string, b: string): boolean {
 
 /* ───────────── Wrong-PIN counting and the 30 s pause ───────────── */
 
-export type Attempts = { fails: number; lockedUntil: number | null };
-export const NO_ATTEMPTS: Attempts = { fails: 0, lockedUntil: null };
+/**
+ * `fails`: wrong PINs in the current round; `rounds`: pauses already served since the last
+ * correct PIN or fingerprint (only those reset it, so the pause keeps growing).
+ */
+export type Attempts = { fails: number; lockedUntil: number | null; rounds: number };
+export const NO_ATTEMPTS: Attempts = { fails: 0, lockedUntil: null, rounds: 0 };
 
 export function parseAttempts(raw: string | null): Attempts {
   if (!raw) return NO_ATTEMPTS;
@@ -63,17 +72,23 @@ export function parseAttempts(raw: string | null): Attempts {
     const v = JSON.parse(raw) as Partial<Attempts>;
     const fails = typeof v.fails === 'number' && v.fails >= 0 ? Math.floor(v.fails) : 0;
     const lockedUntil = typeof v.lockedUntil === 'number' ? v.lockedUntil : null;
-    return { fails, lockedUntil };
+    const rounds = typeof v.rounds === 'number' && v.rounds >= 0 ? Math.floor(v.rounds) : 0;
+    return { fails, lockedUntil, rounds };
   } catch {
     return NO_ATTEMPTS;
   }
 }
 
-/** One more wrong PIN. The 5th starts a 30 s pause and resets the count. */
+/** Length of the pause after `round` earlier pauses (30 s, 1 min, 5 min, 15 min, then 1 h each). */
+export function lockoutFor(round: number): number {
+  return LOCKOUT_STEPS_MS[Math.min(Math.max(0, round), LOCKOUT_STEPS_MS.length - 1)];
+}
+
+/** One more wrong PIN. Every 5th starts a pause (longer each round) and resets the round count. */
 export function registerFailure(a: Attempts, now: number): Attempts {
   const fails = a.fails + 1;
-  if (fails >= MAX_TRIES) return { fails: 0, lockedUntil: now + LOCKOUT_MS };
-  return { fails, lockedUntil: a.lockedUntil };
+  if (fails >= MAX_TRIES) return { fails: 0, lockedUntil: now + lockoutFor(a.rounds), rounds: a.rounds + 1 };
+  return { fails, lockedUntil: a.lockedUntil, rounds: a.rounds };
 }
 
 /** Milliseconds left in the pause (0 when not paused). */
@@ -118,6 +133,11 @@ export function secondsLeft(ms: number): number {
   return Math.ceil(ms / 1000);
 }
 
+/** Whole minutes for "Try again in 14 min" (pauses longer than 90 s). */
+export function minutesLeft(ms: number): number {
+  return Math.ceil(ms / 60_000);
+}
+
 /** Only internal app paths are allowed as a return target (no schemes, no "//host"). */
 export function safeReturnTo(value: string | string[] | undefined | null): string | null {
   const v = Array.isArray(value) ? value[0] : value;
@@ -131,6 +151,14 @@ export function safeReturnTo(value: string | string[] | undefined | null): strin
  * Android back (only its close button leaves). Today: leaving the customer-facing Showroom.
  */
 export const BACK_GUARDED_RETURNS: readonly string[] = [SHOWROOM_LEAVE_PATH];
+
+/**
+ * The mode the lock screen really runs in. Asking to *set* a PIN when one already exists becomes
+ * *change*, so the current PIN is always needed to replace it (a link to /lock?mode=set included).
+ */
+export function effectiveLockMode(mode: 'set' | 'verify' | 'change', pinExists: boolean): 'set' | 'verify' | 'change' {
+  return mode === 'set' && pinExists ? 'change' : mode;
+}
 
 /** True when Android back must be blocked on /lock (verify mode guarding a protected return). */
 export function lockBlocksBack(mode: 'set' | 'verify' | 'change', returnTo: string | string[] | undefined | null): boolean {

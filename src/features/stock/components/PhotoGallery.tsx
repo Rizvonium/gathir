@@ -21,6 +21,17 @@ export type PhotoGalleryProps = {
   ratio?: number;
 };
 
+/** Pages either side of the current one that keep the full-size photo (and its zoom). */
+export const FULL_SIZE_WINDOW = 1;
+
+/**
+ * Whether page `i` loads its full-size photo. Only the current page and its neighbours do; the
+ * others show the small thumbnail, so a product with 8 photos decodes 2–3 large bitmaps, not 8.
+ */
+export function isFullSizePage(i: number, page: number): boolean {
+  return Math.abs(i - page) <= FULL_SIZE_WINDOW;
+}
+
 /**
  * Swipeable product photos. Each page pinch-zooms (to 4×, with rubber band at both ends) and
  * double-tap zooms to 2.5× on the tapped point; while zoomed, one finger pans and paging is
@@ -45,23 +56,23 @@ export function PhotoGallery({ photos, name, ratio = 1.25 }: PhotoGalleryProps) 
   return (
     <View>
       <ScrollView
+        testID="photo-gallery"
         horizontal
         pagingEnabled
         scrollEnabled={!zoomed && photos.length > 1}
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={onScrollEnd}
         style={{ width, height, backgroundColor: colors.surfaceSunken }}>
-        {photos.map((p, i) => (
-          <ZoomablePhoto
-            key={p.id}
-            photo={p}
-            width={width}
-            height={height}
-            label={t('detail.photoOf', { index: i + 1, total: photos.length, name })}
-            hint={t('detail.zoomHint')}
-            onZoomChange={setZoomed}
-          />
-        ))}
+        {photos.map((p, i) => {
+          const label = t('detail.photoOf', { index: i + 1, total: photos.length, name });
+          return isFullSizePage(i, page) ? (
+            <ZoomablePhoto key={p.id} photo={p} width={width} height={height} label={label} hint={t('detail.zoomHint')} onZoomChange={setZoomed} />
+          ) : (
+            <View key={p.id} style={{ width, height }} accessible accessibilityRole="image" accessibilityLabel={label}>
+              <Image source={{ uri: thumbUri(p.thumbName) }} contentFit="cover" transition={0} recyclingKey={p.id} style={StyleSheet.absoluteFill} />
+            </View>
+          );
+        })}
       </ScrollView>
       {photos.length > 1 ? (
         <View style={[styles.dots, { bottom: space.md, gap: space.xs }]} importantForAccessibility="no-hide-descendants">

@@ -84,7 +84,7 @@ export function ProductGridCard({ row, lowThreshold, selecting, selected, focuse
           <AppText variant="body" weight="bold" numeric>
             {formatINR(row.ratePaise)}
           </AppText>
-          <PieceBadge count={row.totalPieces} lowThreshold={lowThreshold} size="sm" />
+          <PieceBadge count={row.totalPieces} lowThreshold={lowThreshold} size="sm" subjectId={row.id} />
           {row.colours.length > 0 ? (
             <ColourDots items={row.colours.map((c) => ({ key: c.id, hex: c.hex, name: c.name, count: c.pieces }))} max={4} />
           ) : null}

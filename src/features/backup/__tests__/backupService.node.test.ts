@@ -5,7 +5,7 @@ import { exportAllTables } from '@/db/repo/backup';
 import { getSettings, updateSettings } from '@/db/repo/settings';
 import { insertSampleData } from '@/db/sampleData';
 import { products } from '@/db/schema';
-import { listFiles, resetFakeFs } from '@/lib/__tests__/fakeFileSystem';
+import { handleStats, listFiles, resetFakeFs } from '@/lib/__tests__/fakeFileSystem';
 import { photosDir } from '@/lib/files';
 import { createTestDb } from '@/test/testDb';
 
@@ -80,6 +80,24 @@ describe('createBackup + restore', () => {
     expect(getSettings(lockedPhone).pinHashSet).toBe(true);
   });
 
+  it("keeps this phone's owner number while a PIN guards it (a zip cannot redirect owner reports)", async () => {
+    const attacker = createTestDb();
+    updateSettings(attacker, { ownerWhatsapp: '+919800000001', reportIncludesProfit: true }, T0);
+    const crafted = await createBackup(attacker, T0);
+
+    const lockedPhone = createTestDb();
+    updateSettings(lockedPhone, { pinHashSet: true, ownerWhatsapp: '+919906000999' }, T0);
+    expect(await restoreBackupFromUri(lockedPhone, crafted.uri)).toMatchObject({ ok: true });
+    expect(getSettings(lockedPhone).ownerWhatsapp).toBe('+919906000999');
+    expect(getSettings(lockedPhone).pinHashSet).toBe(true);
+
+    // No PIN on this phone: nothing guards the number, so the backup's own number comes back.
+    const openPhone = createTestDb();
+    updateSettings(openPhone, { ownerWhatsapp: '+919906000999' }, T0);
+    expect(await restoreBackupFromUri(openPhone, crafted.uri)).toMatchObject({ ok: true });
+    expect(getSettings(openPhone).ownerWhatsapp).toBe('+919800000001');
+  });
+
   it('rolls photos back when the database import fails', async () => {
     const source = createTestDb();
     await putPhoto('new.jpg', [1]);
@@ -100,6 +118,28 @@ describe('createBackup + restore', () => {
     expect(result).toMatchObject({ ok: false, reason: 'failed', message: 'disk full' });
     expect(listFiles('file:///doc/')).toEqual(['file:///doc/photos/keep.jpg']);
     expect(target.select().from(products).all()).toEqual(before);
+  });
+
+  it('streams: the zip is written and read in parts, never as one buffer, and handles are closed', async () => {
+    const source = createTestDb();
+    insertSampleData(source, T0);
+    const big = (seed: number) => Array.from({ length: 30_000 }, (_, i) => (seed + i) & 0xff);
+    await putPhoto('a.jpg', big(1));
+    await putPhoto('b.jpg', big(2));
+    await putPhoto('c.jpg', big(3));
+
+    const backup = await createBackup(source, T0);
+    expect(handleStats.open).toBe(0);
+    expect(handleStats.writes).toBeGreaterThan(3);
+    expect(handleStats.largestWrite).toBeLessThan(backup.sizeBytes / 2);
+    expect(backup.file.size).toBe(backup.sizeBytes);
+
+    new Directory('file:///doc/photos').delete();
+    const result = await restoreBackupFromUri(createTestDb(), backup.uri);
+    expect(result).toMatchObject({ ok: true });
+    expect(handleStats.open).toBe(0);
+    expect(handleStats.largestRead).toBeLessThan(backup.sizeBytes / 2);
+    expect(await bytesOf('file:///doc/photos/b.jpg')).toEqual(big(2));
   });
 
   it('reports a non-backup file as invalid without touching photos', async () => {

@@ -76,6 +76,11 @@ export function getProductDetail(db: DbOrTx, productId: string, lowStockLevel = 
   return { product, category, colours: cols, photos: ph, totalPieces, status: stockStatus(totalPieces, lowStockLevel) };
 }
 
+/** Whether any live (not deleted) product exists: one indexed row, not the whole stock list. */
+export function hasAnyProduct(db: DbOrTx): boolean {
+  return !!db.select({ id: products.id }).from(products).where(isNull(products.deletedAt)).limit(1).get();
+}
+
 /** Every live (not deleted) product as a list row, newest first. Building block for other queries. */
 export function loadLiveProducts(db: DbOrTx, lowStockLevel = 1): ProductListRow[] {
   const rows = db

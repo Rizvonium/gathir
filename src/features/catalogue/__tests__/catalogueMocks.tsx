@@ -69,7 +69,8 @@ export function makeToastModule() {
     if (!api) throw new Error('no toast provider');
     return api;
   };
-  return { ToastProvider, useToast };
+  // AppSheet renders the in-sheet toast outlet; this stand-in shows toasts at the root only.
+  return { ToastProvider, useToast, ToastOutlet: () => null };
 }
 
 export function product(id: string, over: Record<string, unknown> = {}) {

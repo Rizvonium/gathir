@@ -32,7 +32,7 @@ export function useProductCardSend(productId: string | undefined) {
   const toast = useToast();
   const detail = useProductDetail(productId);
   const settings = useSettings();
-  const shop = useDbQuery((d) => getShopInfo(d), []);
+  const shop = useDbQuery((d) => getShopInfo(d), [], { tables: ['shop_settings'] });
   const [phase, setPhase] = useState<CardPhase>({ kind: 'choose' });
 
   const showRates = parseStoredForm(settings?.catalogueOptionsJson).showRates;

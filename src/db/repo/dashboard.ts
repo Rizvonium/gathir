@@ -6,7 +6,7 @@ import { dueFollowUps, type DueFollowUp } from './events';
 import { loadLiveProducts } from './productQueries';
 import { stockValues } from './profit';
 import { lastOwnerReport } from './reports';
-import { salesSummary, unreportedSales } from './saleQueries';
+import { countUnreportedSales, salesSummary } from './saleQueries';
 
 export type AttentionProduct = { id: string; code: string; name: string; totalPieces: number; coverThumb: string | null };
 
@@ -62,7 +62,7 @@ export function homeSummary(db: DbOrTx, now: number, lowStockLevel: number): Hom
     todayProfitUnknownItems: today.unknownCostItems,
     lowStock: products.filter((p) => p.status === 'low').sort((a, b) => a.totalPieces - b.totalPieces).map(pick),
     soldOut: products.filter((p) => p.status === 'out').map(pick),
-    unreportedSalesCount: unreportedSales(db).length,
+    unreportedSalesCount: countUnreportedSales(db),
     lastReportSentAt: lastOwnerReport(db)?.sentAt ?? null,
     followUpsDue: dueFollowUps(db, now),
   };

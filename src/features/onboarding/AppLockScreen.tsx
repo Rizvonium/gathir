@@ -17,7 +17,7 @@ export function AppLockScreen() {
   const { t } = useTranslation('onboarding');
   const { space } = useTheme();
   const router = useRouter();
-  const pinSet = useDbQuery((d) => readOnboardingDraft(d).pinSet, []);
+  const pinSet = useDbQuery((d) => readOnboardingDraft(d).pinSet, [], { tables: ['shop_settings'] });
 
   return (
     <OnboardingScaffold

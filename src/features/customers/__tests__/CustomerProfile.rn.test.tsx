@@ -320,3 +320,11 @@ describe('their catalogue', () => {
     expect(cat.removeFromCustomerCatalogue).toHaveBeenCalledWith({}, 'item-p1');
   });
 });
+
+it('marks the send buttons when the customer said no to catalogues on WhatsApp', async () => {
+  await renderScreen(<CustomerProfileScreen id="c1" />);
+  expect(screen.queryByTestId('customer-catalogue-no-consent')).toBeNull();
+  mockData.profile = { ...profile(), customer: { ...profile().customer, whatsappOk: false } } as CustomerProfile;
+  await renderScreen(<CustomerProfileScreen id="c1" />);
+  expect(screen.getByText('They said no to catalogues. You will be asked before anything is sent.')).toBeTruthy();
+});

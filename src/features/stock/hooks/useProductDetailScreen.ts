@@ -29,16 +29,16 @@ export function useProductDetailScreen(productId: string | undefined) {
 
   const closeReduce = () => setReduceTarget(null);
 
-  const sell = (colourId?: string) => {
+  const sell = (colourId?: string, qty?: number) => {
     if (!id) return;
-    router.push(sellHref(id, colours, colourId));
+    router.push(sellHref(id, colours, colourId, qty));
   };
 
   const pickReason = (reason: ReduceChoice) => {
     const target = reduceTarget;
     closeReduce();
     if (!target) return;
-    if (reason === 'sold') sell(target.colour.id);
+    if (reason === 'sold') sell(target.colour.id, Math.min(target.qty, target.colour.pieces));
     else actions.reduce(target.colour.id, Math.min(target.qty, target.colour.pieces), reason);
   };
 

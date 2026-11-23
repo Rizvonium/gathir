@@ -42,6 +42,15 @@ describe('customers', () => {
     expect(createCustomer(db, { name: 'No phone 2' }, T0)).toBeTruthy();
   });
 
+  it('never assumes consent to catalogues: only an explicit yes is stored as yes', () => {
+    const db = createTestDb();
+    const unasked = createCustomer(db, { name: 'Walk-in', phone: '9000000002' }, T0);
+    const yes = createCustomer(db, { name: 'Asked', phone: '9000000003', whatsappOk: true }, T0);
+    const ok = new Map(listCustomers(db).map((c) => [c.id, c.whatsappOk]));
+    expect(ok.get(unasked)).toBe(false);
+    expect(ok.get(yes)).toBe(true);
+  });
+
   it('soft delete keeps sale snapshots; purge clears them; restore works', () => {
     const db = createTestDb();
     const { colourIds } = addTestProduct(db);

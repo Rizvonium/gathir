@@ -111,6 +111,17 @@ describe('HomeView', () => {
     expect(a.completeFollowUp).toHaveBeenCalledWith(expect.objectContaining({ eventId: 'e1' }));
   });
 
+  it('"See all" opens Customers on "Follow-up due" and Stock on what needs attention', async () => {
+    const due = Array.from({ length: 6 }, (_, i) => ({ ...summary().followUpsDue[0], eventId: `e${i}`, customerId: `c${i}`, customerName: `Customer ${i}` }));
+    const low = Array.from({ length: 4 }, (_, i) => ({ ...summary().lowStock[0], id: `p-low${i}` }));
+    await renderWithTheme(<HomeView model={buildHomeModel(summary({ followUpsDue: due, lowStock: low }), extras, 1, NOW)} actions={actions()} />);
+    const seeAll = screen.getAllByText('See all');
+    expect(seeAll).toHaveLength(2);
+    for (const b of seeAll) await fireEvent.press(b);
+    expect(mockNavigate).toHaveBeenCalledWith({ pathname: '/stock', params: expect.objectContaining({ filter: 'all', sort: 'least' }) });
+    expect(mockNavigate).toHaveBeenCalledWith({ pathname: '/customers', params: expect.objectContaining({ filter: 'due' }) });
+  });
+
   it('sample data banner clears with one tap', async () => {
     const a = actions();
     await renderWithTheme(<HomeView model={buildHomeModel(summary(), { ...extras, hasSample: true }, 1, NOW)} actions={a} />);

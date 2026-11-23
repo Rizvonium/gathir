@@ -12,6 +12,8 @@
     "wrong_one": "Wrong PIN. {{count}} try left before a short pause.",
     "wrong_other": "Wrong PIN. {{count}} tries left before a short pause.",
     "paused": "Too many wrong tries. Try again in {{seconds}} s.",
+    "pausedMinutes_one": "Too many wrong tries. Try again in {{count}} minute.",
+    "pausedMinutes_other": "Too many wrong tries. Try again in {{count}} minutes.",
     "tryAgainNow": "You can try again now."
   },
   "set": {
